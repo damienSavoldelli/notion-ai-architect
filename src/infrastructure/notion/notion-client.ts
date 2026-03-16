@@ -55,8 +55,64 @@ export class NotionClient implements NotionRepository {
     return ideas;
   }
 
-  async createProject(_input: CreateProjectInput): Promise<Project> {
-    throw new Error("NotionClient.createProject is not implemented yet.");
+  async createProject(input: CreateProjectInput): Promise<Project> {
+    const response = await this.notion.pages.create({
+      parent: {
+        data_source_id: this.config.projectsDatabaseId,
+      },
+      properties: {
+        Name: {
+          title: [
+            {
+              type: "text",
+              text: {
+                content: input.name,
+              },
+            },
+          ],
+        },
+        Idea: {
+          relation: [{ id: input.ideaId }],
+        },
+        "Product Plan": {
+          rich_text: [
+            {
+              type: "text",
+              text: {
+                content: input.productPlan,
+              },
+            },
+          ],
+        },
+        Architecture: {
+          rich_text: [
+            {
+              type: "text",
+              text: {
+                content: input.architecture,
+              },
+            },
+          ],
+        },
+        Status: {
+          select: { name: "draft" },
+        },
+      },
+    });
+
+    const projectId = this.extractPageId(response);
+    if (!projectId) {
+      throw new Error("NotionClient.createProject returned an invalid page.");
+    }
+
+    return {
+      id: projectId,
+      ideaId: input.ideaId,
+      name: input.name,
+      productPlan: input.productPlan,
+      architecture: input.architecture,
+      status: "draft",
+    };
   }
 
   async createTasks(_input: CreateTasksInput): Promise<ReadonlyArray<Task>> {
@@ -112,6 +168,14 @@ export class NotionClient implements NotionRepository {
       status,
       createdAt,
     };
+  }
+
+  private extractPageId(page: unknown): string | null {
+    if (!isObject(page) || page.object !== "page") {
+      return null;
+    }
+
+    return typeof page.id === "string" ? page.id : null;
   }
 }
 

@@ -9,17 +9,32 @@ const baseConfig = {
   tasksDatabaseId: "tasks-db",
 };
 
-const createMockSdk = (queryImpl: () => Promise<unknown>) =>
+const createMockSdk = (params?: {
+  queryImpl?: () => Promise<unknown>;
+  createPageImpl?: () => Promise<unknown>;
+}) =>
   ({
     dataSources: {
-      query: vi.fn(queryImpl),
+      query: vi.fn(
+        params?.queryImpl ??
+          vi.fn().mockResolvedValue({
+            results: [],
+            has_more: false,
+            next_cursor: null,
+          }),
+      ),
+    },
+    pages: {
+      create: vi.fn(
+        params?.createPageImpl ?? vi.fn().mockResolvedValue({ object: "page", id: "p-1" }),
+      ),
     },
   }) as unknown as Client;
 
 describe("NotionClient", () => {
   it("maps Notion pages into Idea entities and paginates", async () => {
-    const mockSdk = createMockSdk(
-      vi
+    const mockSdk = createMockSdk({
+      queryImpl: vi
         .fn()
         .mockResolvedValueOnce({
           results: [
@@ -63,7 +78,7 @@ describe("NotionClient", () => {
           has_more: false,
           next_cursor: null,
         }),
-    );
+    });
     const notionClient = new NotionClient(baseConfig, mockSdk);
 
     await expect(notionClient.listNewIdeas()).resolves.toEqual([
@@ -83,8 +98,8 @@ describe("NotionClient", () => {
   });
 
   it("ignores invalid pages from Notion response", async () => {
-    const mockSdk = createMockSdk(
-      vi.fn().mockResolvedValue({
+    const mockSdk = createMockSdk({
+      queryImpl: vi.fn().mockResolvedValue({
         results: [
           {
             object: "database",
@@ -109,14 +124,86 @@ describe("NotionClient", () => {
         has_more: false,
         next_cursor: null,
       }),
-    );
+    });
     const notionClient = new NotionClient(baseConfig, mockSdk);
 
     await expect(notionClient.listNewIdeas()).resolves.toEqual([]);
   });
 
-  it("throws for createProject until implementation", async () => {
-    const notionClient = new NotionClient(baseConfig, createMockSdk(vi.fn()));
+  it("creates a project page and returns the mapped Project entity", async () => {
+    const createPageImpl = vi.fn().mockResolvedValue({
+      object: "page",
+      id: "project-1",
+    });
+    const mockSdk = createMockSdk({ createPageImpl });
+    const notionClient = new NotionClient(baseConfig, mockSdk);
+
+    await expect(
+      notionClient.createProject({
+        ideaId: "idea-1",
+        name: "Billing SaaS",
+        productPlan: "MVP with auth, billing and invoices",
+        architecture: "Fastify + Postgres + Redis",
+      }),
+    ).resolves.toEqual({
+      id: "project-1",
+      ideaId: "idea-1",
+      name: "Billing SaaS",
+      productPlan: "MVP with auth, billing and invoices",
+      architecture: "Fastify + Postgres + Redis",
+      status: "draft",
+    });
+
+    expect(createPageImpl).toHaveBeenCalledWith({
+      parent: {
+        data_source_id: "projects-db",
+      },
+      properties: {
+        Name: {
+          title: [
+            {
+              type: "text",
+              text: {
+                content: "Billing SaaS",
+              },
+            },
+          ],
+        },
+        Idea: {
+          relation: [{ id: "idea-1" }],
+        },
+        "Product Plan": {
+          rich_text: [
+            {
+              type: "text",
+              text: {
+                content: "MVP with auth, billing and invoices",
+              },
+            },
+          ],
+        },
+        Architecture: {
+          rich_text: [
+            {
+              type: "text",
+              text: {
+                content: "Fastify + Postgres + Redis",
+              },
+            },
+          ],
+        },
+        Status: {
+          select: { name: "draft" },
+        },
+      },
+    });
+  });
+
+  it("throws when Notion create page response is invalid", async () => {
+    const mockSdk = createMockSdk({
+      createPageImpl: vi.fn().mockResolvedValue({ object: "list" }),
+    });
+    const notionClient = new NotionClient(baseConfig, mockSdk);
 
     await expect(
       notionClient.createProject({
@@ -125,11 +212,11 @@ describe("NotionClient", () => {
         productPlan: "Plan",
         architecture: "Architecture",
       }),
-    ).rejects.toThrow("NotionClient.createProject is not implemented yet.");
+    ).rejects.toThrow("NotionClient.createProject returned an invalid page.");
   });
 
   it("throws for createTasks until implementation", async () => {
-    const notionClient = new NotionClient(baseConfig, createMockSdk(vi.fn()));
+    const notionClient = new NotionClient(baseConfig, createMockSdk());
 
     await expect(
       notionClient.createTasks({
