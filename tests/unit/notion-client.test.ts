@@ -215,8 +215,87 @@ describe("NotionClient", () => {
     ).rejects.toThrow("NotionClient.createProject returned an invalid page.");
   });
 
-  it("throws for createTasks until implementation", async () => {
-    const notionClient = new NotionClient(baseConfig, createMockSdk());
+  it("creates tasks pages and returns mapped Task entities", async () => {
+    const createPageImpl = vi
+      .fn()
+      .mockResolvedValueOnce({ object: "page", id: "task-1" })
+      .mockResolvedValueOnce({ object: "page", id: "task-2" });
+    const notionClient = new NotionClient(
+      baseConfig,
+      createMockSdk({ createPageImpl }),
+    );
+
+    await expect(
+      notionClient.createTasks({
+        projectId: "project-1",
+        tasks: [
+          {
+            title: "Setup auth",
+            description: "Add auth endpoints",
+            priority: "high",
+          },
+          {
+            title: "Setup billing",
+            description: "Integrate Stripe",
+            priority: "medium",
+          },
+        ],
+      }),
+    ).resolves.toEqual([
+      {
+        id: "task-1",
+        projectId: "project-1",
+        title: "Setup auth",
+        description: "Add auth endpoints",
+        status: "todo",
+        priority: "high",
+      },
+      {
+        id: "task-2",
+        projectId: "project-1",
+        title: "Setup billing",
+        description: "Integrate Stripe",
+        status: "todo",
+        priority: "medium",
+      },
+    ]);
+
+    expect(createPageImpl).toHaveBeenCalledTimes(2);
+    expect(createPageImpl).toHaveBeenNthCalledWith(1, {
+      parent: {
+        data_source_id: "tasks-db",
+      },
+      properties: {
+        Task: {
+          title: [
+            {
+              type: "text",
+              text: {
+                content: "Setup auth",
+              },
+            },
+          ],
+        },
+        Project: {
+          relation: [{ id: "project-1" }],
+        },
+        Status: {
+          select: { name: "todo" },
+        },
+        Priority: {
+          select: { name: "high" },
+        },
+      },
+    });
+  });
+
+  it("throws when a created task page response is invalid", async () => {
+    const notionClient = new NotionClient(
+      baseConfig,
+      createMockSdk({
+        createPageImpl: vi.fn().mockResolvedValue({ object: "list" }),
+      }),
+    );
 
     await expect(
       notionClient.createTasks({
@@ -229,6 +308,6 @@ describe("NotionClient", () => {
           },
         ],
       }),
-    ).rejects.toThrow("NotionClient.createTasks is not implemented yet.");
+    ).rejects.toThrow("NotionClient.createTasks returned an invalid page.");
   });
 });

@@ -115,8 +115,53 @@ export class NotionClient implements NotionRepository {
     };
   }
 
-  async createTasks(_input: CreateTasksInput): Promise<ReadonlyArray<Task>> {
-    throw new Error("NotionClient.createTasks is not implemented yet.");
+  async createTasks(input: CreateTasksInput): Promise<ReadonlyArray<Task>> {
+    const createdTasks = await Promise.all(
+      input.tasks.map(async (taskInput) => {
+        const response = await this.notion.pages.create({
+          parent: {
+            data_source_id: this.config.tasksDatabaseId,
+          },
+          properties: {
+            Task: {
+              title: [
+                {
+                  type: "text",
+                  text: {
+                    content: taskInput.title,
+                  },
+                },
+              ],
+            },
+            Project: {
+              relation: [{ id: input.projectId }],
+            },
+            Status: {
+              select: { name: "todo" },
+            },
+            Priority: {
+              select: { name: taskInput.priority },
+            },
+          },
+        });
+
+        const taskId = this.extractPageId(response);
+        if (!taskId) {
+          throw new Error("NotionClient.createTasks returned an invalid page.");
+        }
+
+        return {
+          id: taskId,
+          projectId: input.projectId,
+          title: taskInput.title,
+          description: taskInput.description,
+          status: "todo",
+          priority: taskInput.priority,
+        } satisfies Task;
+      }),
+    );
+
+    return createdTasks;
   }
 
   private mapIdea(page: unknown): Idea | null {
