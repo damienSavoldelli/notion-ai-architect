@@ -7,6 +7,7 @@ import { IdeaWorker } from "./idea-worker";
 
 const main = async (): Promise<void> => {
   const env = loadEnv(process.env);
+  console.log("Starting worker runOnce cycle.");
 
   const notionRepository = new NotionClient({
     authToken: env.NOTION_API_TOKEN,
@@ -32,6 +33,7 @@ const main = async (): Promise<void> => {
 
   const worker = new IdeaWorker(workflow);
   await worker.runOnce();
+  console.log("Worker cycle completed.");
 };
 
 if (import.meta.main) {

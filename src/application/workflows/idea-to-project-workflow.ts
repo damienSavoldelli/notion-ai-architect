@@ -18,6 +18,8 @@ export class IdeaToProjectWorkflow {
 
   async runOnce(): Promise<WorkflowRunSummary> {
     const ideas = await this.notionRepository.listNewIdeas();
+    console.log(`Found ${ideas.length} new idea(s) to process.`);
+
     const summary: WorkflowRunSummary = {
       processedIdeas: 0,
       createdProjects: 0,
@@ -26,6 +28,8 @@ export class IdeaToProjectWorkflow {
     };
 
     for (const idea of ideas) {
+      console.log(`Processing idea ${idea.id}: ${idea.title}`);
+
       const generatedProject =
         await this.aiArchitectService.generateProjectFromIdea(idea.title);
 
@@ -58,6 +62,10 @@ export class IdeaToProjectWorkflow {
       summary.createdProjects += 1;
       summary.createdTasks += createdTasks.length;
     }
+
+    console.log(
+      `Workflow summary: ideas=${summary.processedIdeas}, projects=${summary.createdProjects}, tasks=${summary.createdTasks}, issues=${summary.createdIssues}`,
+    );
 
     return summary;
   }
