@@ -13,5 +13,6 @@ AI workflow engine that turns Notion ideas into executable projects using AI.
 
 - `bun run start`
 - `bun run dev`
+- `bun run worker:run`
 - `bun run test`
 - `bun run typecheck`

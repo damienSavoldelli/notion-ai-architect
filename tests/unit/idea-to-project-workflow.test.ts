@@ -1,0 +1,173 @@
+import { describe, expect, it, vi } from "vitest";
+import { IdeaToProjectWorkflow } from "../../src/application/workflows/idea-to-project-workflow";
+import type { AiArchitectService } from "../../src/application/ports/ai-architect-service";
+import type { GitHubRepository } from "../../src/application/ports/github-repository";
+import type { NotionRepository } from "../../src/application/ports/notion-repository";
+
+const createMocks = () => {
+  const listNewIdeas = vi.fn();
+  const createProject = vi.fn();
+  const createTasks = vi.fn();
+  const generateProjectFromIdea = vi.fn();
+  const createIssue = vi.fn();
+
+  const notionRepository: NotionRepository = {
+    listNewIdeas,
+    createProject,
+    createTasks,
+  };
+
+  const aiArchitectService: AiArchitectService = {
+    generateProjectFromIdea,
+  };
+
+  const githubRepository: GitHubRepository = {
+    createIssue,
+  };
+
+  return {
+    notionRepository,
+    aiArchitectService,
+    githubRepository,
+    listNewIdeas,
+    createProject,
+    createTasks,
+    generateProjectFromIdea,
+    createIssue,
+  };
+};
+
+describe("IdeaToProjectWorkflow", () => {
+  it("returns an empty summary when there are no new ideas", async () => {
+    const {
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+      listNewIdeas,
+    } = createMocks();
+    listNewIdeas.mockResolvedValue([]);
+
+    const workflow = new IdeaToProjectWorkflow(
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+    );
+
+    await expect(workflow.runOnce()).resolves.toEqual({
+      processedIdeas: 0,
+      createdProjects: 0,
+      createdTasks: 0,
+      createdIssues: 0,
+    });
+
+    expect(aiArchitectService.generateProjectFromIdea).not.toHaveBeenCalled();
+    expect(githubRepository.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("orchestrates idea -> project -> tasks -> issues", async () => {
+    const {
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+      listNewIdeas,
+      generateProjectFromIdea,
+      createProject,
+      createTasks,
+      createIssue,
+    } = createMocks();
+    listNewIdeas.mockResolvedValue([
+      {
+        id: "idea-1",
+        title: "Build an AI CRM assistant",
+        status: "new",
+        createdAt: new Date("2026-03-16T12:00:00.000Z"),
+      },
+    ]);
+    generateProjectFromIdea.mockResolvedValue({
+      product_overview: {
+        name: "AI CRM Assistant",
+        description: "Automates CRM follow-up actions.",
+        target_users: ["sales teams"],
+      },
+      architecture: {
+        frontend: "React",
+        backend: "Fastify",
+        database: "PostgreSQL",
+        infrastructure: "Docker",
+      },
+      tasks: [
+        {
+          title: "Setup backend",
+          description: "Initialize API foundation.",
+          priority: "high",
+        },
+      ],
+      roadmap: [{ sprint: "Sprint 1", tasks: ["Setup backend"] }],
+    });
+    createProject.mockResolvedValue({
+      id: "project-1",
+      ideaId: "idea-1",
+      name: "AI CRM Assistant",
+      productPlan: "Automates CRM follow-up actions.",
+      architecture: "{}",
+      status: "draft",
+    });
+    createTasks.mockResolvedValue([
+      {
+        id: "task-1",
+        projectId: "project-1",
+        title: "Setup backend",
+        description: "Initialize API foundation.",
+        status: "todo",
+        priority: "high",
+      },
+    ]);
+    createIssue.mockResolvedValue("https://github.com/acme/repo/issues/1");
+
+    const workflow = new IdeaToProjectWorkflow(
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+    );
+
+    await expect(workflow.runOnce()).resolves.toEqual({
+      processedIdeas: 1,
+      createdProjects: 1,
+      createdTasks: 1,
+      createdIssues: 1,
+    });
+
+    expect(aiArchitectService.generateProjectFromIdea).toHaveBeenCalledWith(
+      "Build an AI CRM assistant",
+    );
+    expect(notionRepository.createProject).toHaveBeenCalledWith({
+      ideaId: "idea-1",
+      name: "AI CRM Assistant",
+      productPlan: "Automates CRM follow-up actions.",
+      architecture: `{
+  "frontend": "React",
+  "backend": "Fastify",
+  "database": "PostgreSQL",
+  "infrastructure": "Docker"
+}`,
+    });
+    expect(notionRepository.createTasks).toHaveBeenCalledWith({
+      projectId: "project-1",
+      tasks: [
+        {
+          title: "Setup backend",
+          description: "Initialize API foundation.",
+          priority: "high",
+        },
+      ],
+    });
+    expect(githubRepository.createIssue).toHaveBeenCalledWith({
+      title: "[AI CRM Assistant] Setup backend",
+      body: `Project: AI CRM Assistant
+
+Task description:
+Initialize API foundation.`,
+      labels: ["ai-generated"],
+    });
+  });
+});
