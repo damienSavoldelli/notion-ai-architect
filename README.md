@@ -46,6 +46,7 @@ tests/
 3. Fill `.env` with your Notion, OpenAI and GitHub credentials
 4. Run tests: `bun test`
 5. Run one worker cycle: `bun run worker:run`
+6. Run API server: `bun run api:run`
 
 ## Environment variables
 
@@ -58,11 +59,14 @@ tests/
 - `GITHUB_TOKEN`
 - `GITHUB_OWNER`
 - `GITHUB_REPO`
+- `API_HOST` (default `0.0.0.0`)
+- `API_PORT` (default `3000`)
 
 ## Scripts
 
 - `bun run start`
 - `bun run dev`
+- `bun run api:run`
 - `bun run worker:run`
 - `bun run test`
 - `bun run typecheck`

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
+    "api:run": "bun src/api/run-api.ts",
     "worker:run": "bun src/worker/run-worker.ts",
     "test": "vitest run",
     "test:watch": "vitest",

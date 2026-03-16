@@ -17,6 +17,8 @@ describe("loadEnv", () => {
 
     expect(env.OPENAI_MODEL).toBe("gpt-5.2");
     expect(env.GITHUB_REPO).toBe("notion-ai-architect");
+    expect(env.API_HOST).toBe("0.0.0.0");
+    expect(env.API_PORT).toBe(3000);
   });
 
   it("throws when required values are missing", () => {

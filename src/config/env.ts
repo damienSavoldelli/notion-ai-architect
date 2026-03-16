@@ -10,6 +10,8 @@ const envSchema = z.object({
   GITHUB_TOKEN: z.string().min(1),
   GITHUB_OWNER: z.string().min(1),
   GITHUB_REPO: z.string().min(1),
+  API_HOST: z.string().min(1).default("0.0.0.0"),
+  API_PORT: z.coerce.number().int().positive().default(3000),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
