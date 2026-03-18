@@ -53,11 +53,13 @@ describe("OpenAiArchitectClient", () => {
     });
 
     expect(createImpl).toHaveBeenCalledTimes(1);
-    expect(createImpl).toHaveBeenCalledWith({
-      model: "gpt-5.2",
-      input: expect.stringContaining("Build an AI CRM assistant"),
-      temperature: 0.2,
-    });
+    expect(createImpl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-5.2",
+        input: expect.stringContaining("Build an AI CRM assistant"),
+        temperature: 0.2,
+      }),
+    );
   });
 
   it("retries when first response is invalid JSON and succeeds on second", async () => {
@@ -95,18 +97,20 @@ describe("OpenAiArchitectClient", () => {
     expect(createImpl).toHaveBeenCalledTimes(2);
   });
 
-  it("throws after retries when OpenAI does not return valid JSON", async () => {
+  it("returns fallback project after retries when OpenAI does not return valid JSON", async () => {
     const client = new OpenAiArchitectClient(
       baseConfig,
       createMockSdk(vi.fn().mockResolvedValue({ output_text: "not-json" })),
     );
 
-    await expect(
-      client.generateProjectFromIdea("Build something"),
-    ).rejects.toThrow("OpenAI response is not valid JSON after retries.");
+    await expect(client.generateProjectFromIdea("Build something")).resolves.toMatchObject({
+      product_overview: {
+        name: "Build something",
+      },
+    });
   });
 
-  it("throws after retries when OpenAI text does not match expected schema", async () => {
+  it("normalizes OpenAI text when schema is close but not strictly valid", async () => {
     const client = new OpenAiArchitectClient(
       baseConfig,
       createMockSdk(
@@ -136,8 +140,28 @@ describe("OpenAiArchitectClient", () => {
       ),
     );
 
+    await expect(client.generateProjectFromIdea("Build something")).resolves.toMatchObject({
+      product_overview: {
+        name: "Invalid",
+      },
+      tasks: [
+        {
+          title: "Task",
+          priority: "high",
+          type: "feature",
+        },
+      ],
+    });
+  });
+
+  it("throws when OpenAI API request fails", async () => {
+    const client = new OpenAiArchitectClient(
+      baseConfig,
+      createMockSdk(vi.fn().mockRejectedValue(new Error("openai unavailable"))),
+    );
+
     await expect(client.generateProjectFromIdea("Build something")).rejects.toThrow(
-      "OpenAI response JSON does not match expected schema after retries.",
+      "openai unavailable",
     );
   });
 

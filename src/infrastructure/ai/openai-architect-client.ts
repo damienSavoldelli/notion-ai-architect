@@ -23,6 +23,14 @@ interface OpenAiResponsesApi {
     model: string;
     input: string;
     temperature?: number;
+    text?: {
+      format: {
+        type: "json_schema";
+        name: string;
+        strict: boolean;
+        schema: Record<string, unknown>;
+      };
+    };
   }): Promise<unknown>;
 }
 
@@ -38,7 +46,7 @@ export interface OpenAiArchitectClientConfig {
 
 export class OpenAiArchitectClient implements AiArchitectService {
   private readonly openai: OpenAiSdk;
-  private static readonly MAX_ATTEMPTS = 2;
+  private static readonly MAX_ATTEMPTS = 3;
 
   constructor(
     private readonly config: OpenAiArchitectClientConfig,
@@ -56,6 +64,14 @@ export class OpenAiArchitectClient implements AiArchitectService {
         model: this.config.model,
         input: buildPrompt(sanitizedIdea, attempt),
         temperature: this.config.temperature ?? 0.2,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "generated_project",
+            strict: true,
+            schema: GENERATED_PROJECT_RESPONSE_SCHEMA,
+          },
+        },
       });
 
       const outputText = extractOutputText(response);
@@ -72,7 +88,11 @@ export class OpenAiArchitectClient implements AiArchitectService {
         continue;
       }
 
-      const validated = safeParseGeneratedProject(parsedJson.value);
+      const normalized = normalizeGeneratedProjectCandidate(
+        parsedJson.value,
+        sanitizedIdea,
+      );
+      const validated = safeParseGeneratedProject(normalized);
       if (!validated.success) {
         lastError = new Error(
           "OpenAI response JSON does not match expected schema after retries.",
@@ -83,14 +103,17 @@ export class OpenAiArchitectClient implements AiArchitectService {
       return validated.data;
     }
 
-    throw lastError ?? new Error("OpenAI response validation failed.");
+    console.warn(
+      `OpenAI output remained invalid after retries. Using deterministic fallback. reason=${lastError?.message ?? "unknown"}`,
+    );
+    return buildFallbackGeneratedProject(sanitizedIdea);
   }
 }
 
 const buildPrompt = (idea: string, attempt: number): string =>
   `${SYSTEM_PROMPT}
 
-${attempt > 1 ? "Previous response was invalid. Return valid JSON only.\n" : ""}
+${attempt > 1 ? "Previous response was invalid. Return valid JSON only and strictly match the schema.\n" : ""}
 
 Project idea:
 
@@ -135,11 +158,451 @@ const extractOutputText = (response: unknown): string | null => {
 const safeJsonParse = (
   value: string,
 ): { ok: true; value: unknown } | { ok: false } => {
-  try {
-    return { ok: true, value: JSON.parse(value) };
-  } catch {
-    return { ok: false };
+  const candidates = [
+    value.trim(),
+    unwrapJsonCodeFence(value),
+    extractFirstJsonObject(value),
+  ].filter((candidate): candidate is string => typeof candidate === "string");
+
+  for (const candidate of candidates) {
+    try {
+      return { ok: true, value: JSON.parse(candidate) };
+    } catch {
+      continue;
+    }
   }
+
+  return { ok: false };
+};
+
+const unwrapJsonCodeFence = (value: string): string | null => {
+  const match = value.trim().match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return match?.[1]?.trim() || null;
+};
+
+const extractFirstJsonObject = (value: string): string | null => {
+  const start = value.indexOf("{");
+  if (start === -1) {
+    return null;
+  }
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < value.length; index += 1) {
+    const char = value[index];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return value.slice(start, index + 1);
+      }
+    }
+  }
+
+  return null;
+};
+
+const normalizeGeneratedProjectCandidate = (
+  value: unknown,
+  idea: string,
+): GeneratedProject => {
+  const root = isObject(value) ? value : {};
+  const productOverviewRoot = pickObject(root, [
+    "product_overview",
+    "productOverview",
+    "overview",
+  ]);
+  const architectureRoot = pickObject(root, ["architecture", "tech_stack", "techStack"]);
+  const tasksRoot = pickArray(root, ["tasks", "todo", "items"]);
+  const roadmapRoot = pickArray(root, ["roadmap", "sprints", "phases"]);
+
+  const tasks = normalizeTasks(tasksRoot, idea);
+  const roadmap = normalizeRoadmap(roadmapRoot, tasks);
+
+  return {
+    product_overview: {
+      name:
+        pickString(productOverviewRoot, ["name", "project_name", "title"]) ??
+        deriveProjectNameFromIdea(idea),
+      description:
+        pickString(productOverviewRoot, ["description", "summary", "overview"]) ??
+        `Project generated from idea: ${idea}`,
+      target_users:
+        pickStringArray(productOverviewRoot, [
+          "target_users",
+          "targetUsers",
+          "users",
+        ]) ?? ["builders"],
+    },
+    architecture: {
+      frontend:
+        pickString(architectureRoot, ["frontend", "front", "ui"]) ??
+        "Web dashboard (optional for MVP)",
+      backend:
+        pickString(architectureRoot, ["backend", "api", "server"]) ??
+        "Fastify API with clean architecture",
+      database:
+        pickString(architectureRoot, ["database", "db", "storage"]) ??
+        "Notion databases as workflow source of truth",
+      infrastructure:
+        pickString(architectureRoot, ["infrastructure", "infra", "deployment"]) ??
+        "Bun worker + OpenAI API + GitHub API",
+    },
+    tasks,
+    roadmap,
+  };
+};
+
+const normalizeTasks = (tasksValue: unknown[], idea: string): GeneratedProject["tasks"] => {
+  const normalized = tasksValue
+    .filter(isObject)
+    .map((task, index) => normalizeTask(task, index, idea));
+
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  return buildFallbackGeneratedProject(idea).tasks;
+};
+
+const normalizeTask = (
+  task: Record<string, unknown>,
+  index: number,
+  idea: string,
+): GeneratedProject["tasks"][number] => {
+  const title =
+    pickString(task, ["title", "name", "task"]) ?? `Task ${index + 1}`;
+  const description =
+    pickString(task, ["description", "details", "summary"]) ??
+    `Implement: ${title} for project idea "${idea}".`;
+
+  const type = normalizeTaskType(
+    pickString(task, ["type", "category", "kind"]),
+  );
+
+  return {
+    title,
+    description,
+    priority: normalizePriority(pickString(task, ["priority", "importance"])),
+    type,
+    labels: pickStringArray(task, ["labels", "tags"]),
+    acceptance_criteria: pickStringArray(task, [
+      "acceptance_criteria",
+      "acceptanceCriteria",
+      "criteria",
+    ]),
+  };
+};
+
+const normalizeRoadmap = (
+  roadmapValue: unknown[],
+  tasks: ReadonlyArray<GeneratedProject["tasks"][number]>,
+): GeneratedProject["roadmap"] => {
+  const normalized = roadmapValue
+    .filter(isObject)
+    .map((item, index) => {
+      const sprint =
+        pickString(item, ["sprint", "name", "phase"]) ??
+        `Sprint ${index + 1}`;
+      const sprintTasks = pickStringArray(item, ["tasks", "items"]);
+      return {
+        sprint,
+        tasks: sprintTasks && sprintTasks.length > 0 ? sprintTasks : tasks.map((task) => task.title),
+      };
+    });
+
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  return [
+    {
+      sprint: "Sprint 1",
+      tasks: tasks.map((task) => task.title),
+    },
+  ];
+};
+
+const normalizePriority = (
+  rawPriority: string | null,
+): "low" | "medium" | "high" => {
+  const value = (rawPriority ?? "").toLowerCase().trim();
+  if (value.includes("high") || value.includes("urgent") || value.includes("critical")) {
+    return "high";
+  }
+  if (value.includes("low") || value.includes("minor")) {
+    return "low";
+  }
+  return "medium";
+};
+
+const normalizeTaskType = (
+  rawType: string | null,
+): "feature" | "bug" | "chore" => {
+  const value = (rawType ?? "").toLowerCase().trim();
+  if (value.includes("bug") || value.includes("fix") || value.includes("defect")) {
+    return "bug";
+  }
+  if (
+    value.includes("chore") ||
+    value.includes("task") ||
+    value.includes("refactor") ||
+    value.includes("doc")
+  ) {
+    return "chore";
+  }
+  return "feature";
+};
+
+const pickObject = (
+  root: Record<string, unknown>,
+  keys: ReadonlyArray<string>,
+): Record<string, unknown> => {
+  for (const key of keys) {
+    const value = root[key];
+    if (isObject(value)) {
+      return value;
+    }
+  }
+  return {};
+};
+
+const pickArray = (
+  root: Record<string, unknown>,
+  keys: ReadonlyArray<string>,
+): unknown[] => {
+  for (const key of keys) {
+    const value = root[key];
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+  return [];
+};
+
+const pickString = (
+  root: Record<string, unknown>,
+  keys: ReadonlyArray<string>,
+): string | null => {
+  for (const key of keys) {
+    const value = toCleanString(root[key]);
+    if (value) {
+      return value;
+    }
+  }
+  return null;
+};
+
+const pickStringArray = (
+  root: Record<string, unknown>,
+  keys: ReadonlyArray<string>,
+): string[] | undefined => {
+  for (const key of keys) {
+    const value = root[key];
+
+    if (Array.isArray(value)) {
+      const cleaned = value
+        .map((item) => toCleanString(item))
+        .filter((item): item is string => typeof item === "string");
+      if (cleaned.length > 0) {
+        return cleaned;
+      }
+    }
+
+    if (typeof value === "string") {
+      const cleaned = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+      if (cleaned.length > 0) {
+        return cleaned;
+      }
+    }
+  }
+
+  return undefined;
+};
+
+const toCleanString = (value: unknown): string | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  return cleaned.length > 0 ? cleaned : null;
+};
+
+const deriveProjectNameFromIdea = (idea: string): string => {
+  const compact = idea.replace(/\s+/g, " ").trim();
+  if (compact.length <= 80) {
+    return compact;
+  }
+  return `${compact.slice(0, 77)}...`;
+};
+
+const buildFallbackGeneratedProject = (idea: string): GeneratedProject => {
+  const projectName = deriveProjectNameFromIdea(idea);
+  const tasks: GeneratedProject["tasks"] = [
+    {
+      title: "Define MVP scope and requirements",
+      description: `Clarify MVP scope, constraints, and user goals for: ${projectName}.`,
+      priority: "high",
+      type: "feature",
+      labels: ["planning"],
+      acceptance_criteria: [
+        "MVP scope is clearly documented.",
+        "User goals and success criteria are defined.",
+      ],
+    },
+    {
+      title: "Implement core backend workflow",
+      description:
+        "Build the backend workflow that transforms idea input into project and task outputs.",
+      priority: "high",
+      type: "feature",
+      labels: ["backend", "workflow"],
+      acceptance_criteria: [
+        "Workflow runs end-to-end without manual intervention.",
+        "Generated outputs are stored correctly in Notion and GitHub.",
+      ],
+    },
+    {
+      title: "Validate end-to-end execution",
+      description:
+        "Add integration and e2e checks to ensure deterministic execution and idempotency.",
+      priority: "medium",
+      type: "chore",
+      labels: ["testing"],
+      acceptance_criteria: [
+        "Integration tests pass against mocked providers.",
+        "One full e2e run succeeds with real configuration.",
+      ],
+    },
+  ];
+
+  return {
+    product_overview: {
+      name: projectName,
+      description: `Automatically generated fallback project structure for idea: ${idea}.`,
+      target_users: ["developers", "product teams"],
+    },
+    architecture: {
+      frontend: "Optional web dashboard for project tracking",
+      backend: "Fastify API and worker orchestration",
+      database: "Notion databases for ideas/projects/tasks",
+      infrastructure: "Bun runtime with OpenAI and GitHub API integrations",
+    },
+    tasks,
+    roadmap: [
+      {
+        sprint: "Sprint 1",
+        tasks: tasks.map((task) => task.title),
+      },
+    ],
+  };
+};
+
+const GENERATED_PROJECT_RESPONSE_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  required: ["product_overview", "architecture", "tasks", "roadmap"],
+  properties: {
+    product_overview: {
+      type: "object",
+      additionalProperties: false,
+      required: ["name", "description", "target_users"],
+      properties: {
+        name: { type: "string", minLength: 1 },
+        description: { type: "string", minLength: 1 },
+        target_users: {
+          type: "array",
+          minItems: 1,
+          items: { type: "string", minLength: 1 },
+        },
+      },
+    },
+    architecture: {
+      type: "object",
+      additionalProperties: false,
+      required: ["frontend", "backend", "database", "infrastructure"],
+      properties: {
+        frontend: { type: "string", minLength: 1 },
+        backend: { type: "string", minLength: 1 },
+        database: { type: "string", minLength: 1 },
+        infrastructure: { type: "string", minLength: 1 },
+      },
+    },
+    tasks: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "title",
+          "description",
+          "priority",
+          "type",
+          "labels",
+          "acceptance_criteria",
+        ],
+        properties: {
+          title: { type: "string", minLength: 1 },
+          description: { type: "string", minLength: 1 },
+          priority: { type: "string", enum: ["low", "medium", "high"] },
+          type: { type: "string", enum: ["feature", "bug", "chore"] },
+          labels: {
+            type: "array",
+            items: { type: "string", minLength: 1 },
+          },
+          acceptance_criteria: {
+            type: "array",
+            items: { type: "string", minLength: 1 },
+          },
+        },
+      },
+    },
+    roadmap: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["sprint", "tasks"],
+        properties: {
+          sprint: { type: "string", minLength: 1 },
+          tasks: {
+            type: "array",
+            minItems: 1,
+            items: { type: "string", minLength: 1 },
+          },
+        },
+      },
+    },
+  },
 };
 
 const sanitizeIdeaInput = (idea: string): string => {
