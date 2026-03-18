@@ -55,12 +55,20 @@ RULES:
 - Technical notes must include concrete implementation details
 - technical_notes must contain at least 2-3 concrete implementation steps
 - Each task must be understandable by a developer without additional context
+- Technical notes must reference concrete technologies, data structures, APIs, or algorithms when relevant
+- Avoid generic technical notes like "implement logic", "add validation", or "add tests"
+- Be specific about implementation approach (workflow, persistence, interfaces, integrations)
+- Tasks must include domain-specific details (e.g. APIs, data models, workflows)
 - Include backend and frontend tasks when relevant
 - Return 6 to 10 tasks
 
 EXAMPLES:
 Bad example title: "Implement task assignment feature"
-Good example title: "Implement action item assignment to users with persistence in database"`;
+Good example title: "Implement action item assignment to users with persistence in database"
+Bad technical notes: "Implement core logic and add tests"
+Good technical notes: "Implement rule engine using merchant keyword mapping, add fallback classifier for unknown categories, and persist normalized categories in PostgreSQL with API retrieval endpoints"
+Bad acceptance criteria: "Feature works correctly"
+Good acceptance criteria: "Given predefined rules, transactions are categorized deterministically; uncategorized transactions trigger fallback classification; categorized results are persisted and retrievable via API and UI"`;
 
 interface OpenAiResponsesApi {
   create(params: {

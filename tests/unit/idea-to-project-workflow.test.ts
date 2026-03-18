@@ -211,9 +211,9 @@ Deliver a production-ready implementation of this feature with proper validation
 
 ## 🛠 Technical Notes
 
-- Define implementation scope, interfaces, and data contracts for "Setup backend".
-- Implement core logic with validation and error handling.
-- Add automated tests for success path, validation failures, and edge cases.
+- Implement authentication flow with secure credential validation and token lifecycle management.
+- Integrate authorization checks into protected routes and define role/permission boundaries.
+- Add security-focused tests for invalid credentials, token expiry, and unauthorized access.
 
 ---
 

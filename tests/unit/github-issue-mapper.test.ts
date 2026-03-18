@@ -39,9 +39,9 @@ Deliver a production-ready implementation of this feature with proper validation
 
 ## 🛠 Technical Notes
 
-- Define implementation scope, interfaces, and data contracts for "Implement JWT authentication system".
-- Implement core logic with validation and error handling.
-- Add automated tests for success path, validation failures, and edge cases.
+- Implement authentication flow with secure credential validation and token lifecycle management.
+- Integrate authorization checks into protected routes and define role/permission boundaries.
+- Add security-focused tests for invalid credentials, token expiry, and unauthorized access.
 
 ---
 
@@ -87,10 +87,14 @@ Deliver a production-ready implementation of this feature with proper validation
     expect(mapped.body).toContain("## 📦 Project");
     expect(mapped.body).toContain("General");
     expect(mapped.body).toContain(
-      '- Define implementation scope, interfaces, and data contracts for "Untitled task".',
+      '- Define service interfaces, data contracts, and module boundaries for "Untitled task".',
     );
-    expect(mapped.body).toContain("- [ ] Implementation is completed and reviewed.");
-    expect(mapped.body).toContain("- [ ] Tests are added or updated.");
+    expect(mapped.body).toContain(
+      '- [ ] Untitled task is implemented according to the specified workflow and business rules.',
+    );
+    expect(mapped.body).toContain(
+      "- [ ] Data changes are persisted correctly and retrievable through the expected API/service interface.",
+    );
     expect(mapped.labels).toEqual([
       "AI",
       "medium",

@@ -18,11 +18,6 @@ export interface GithubIssuePayload {
   labels: ReadonlyArray<string>;
 }
 
-const DEFAULT_ACCEPTANCE_CRITERIA: ReadonlyArray<string> = [
-  "Implementation is completed and reviewed.",
-  "Tests are added or updated.",
-];
-
 export const mapTaskToGithubIssue = (
   task: GithubIssueTaskInput,
 ): GithubIssuePayload => {
@@ -34,14 +29,19 @@ export const mapTaskToGithubIssue = (
   const type = normalizeType(task.type);
   const projectLabel = `project:${slugifyProjectName(projectName)}`;
   const priorityLabel = `priority:${priority}`;
+  const domainLabels = inferDomainLabels(task);
   const technicalNotes = normalizeTechnicalNotes(
     task.technical_notes,
     taskTitle,
+    description,
+    domainLabels,
   );
   const acceptanceCriteria = normalizeAcceptanceCriteria(
     task.acceptance_criteria,
+    taskTitle,
+    description,
+    domainLabels,
   );
-  const domainLabels = inferDomainLabels(task);
 
   const body = `## 📦 Project
 
@@ -143,32 +143,39 @@ const normalizeLabel = (label: string): string => {
 
 const normalizeAcceptanceCriteria = (
   acceptanceCriteria?: ReadonlyArray<string>,
+  taskTitle?: string,
+  description?: string,
+  domainLabels: ReadonlyArray<string> = [],
 ): ReadonlyArray<string> => {
   const cleanCriteria = (acceptanceCriteria ?? [])
     .map((criteria) => criteria.trim())
     .filter((criteria) => criteria.length > 0);
 
-  if (cleanCriteria.length > 0) {
+  if (cleanCriteria.length > 0 && !isGenericAcceptanceCriteria(cleanCriteria)) {
     return cleanCriteria;
   }
 
-  return DEFAULT_ACCEPTANCE_CRITERIA;
+  return buildContextualAcceptanceCriteria(
+    taskTitle ?? "the feature",
+    description ?? "",
+    domainLabels,
+  );
 };
 
 const normalizeTechnicalNotes = (
   value: string | undefined,
   taskTitle: string,
+  description: string,
+  domainLabels: ReadonlyArray<string>,
 ): string => {
   const extractedSteps = extractTechnicalSteps(value);
-  if (extractedSteps.length >= 2) {
+  if (extractedSteps.length >= 2 && !areGenericTechnicalSteps(extractedSteps)) {
     return extractedSteps.map((step) => `- ${step}`).join("\n");
   }
 
-  return [
-    `- Define implementation scope, interfaces, and data contracts for "${taskTitle}".`,
-    "- Implement core logic with validation and error handling.",
-    "- Add automated tests for success path, validation failures, and edge cases.",
-  ].join("\n");
+  return buildContextualTechnicalNotes(taskTitle, description, domainLabels)
+    .map((step) => `- ${step}`)
+    .join("\n");
 };
 
 const dedupeLabels = (labels: ReadonlyArray<string>): ReadonlyArray<string> => {
@@ -215,6 +222,128 @@ const deriveTitleFromDescription = (description: string): string | null => {
       : normalized;
 
   return limited.charAt(0).toUpperCase() + limited.slice(1);
+};
+
+const areGenericTechnicalSteps = (steps: ReadonlyArray<string>): boolean =>
+  steps.every((step) =>
+    /define implementation scope|implement core logic|add (automated )?tests|validation|error handling/i.test(
+      step,
+    ),
+  );
+
+const isGenericAcceptanceCriteria = (
+  criteria: ReadonlyArray<string>,
+): boolean =>
+  criteria.every((item) =>
+    /works|correctly|properly|completed|done|functional/i.test(item),
+  );
+
+const buildContextualTechnicalNotes = (
+  taskTitle: string,
+  description: string,
+  domainLabels: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
+  const corpus = `${taskTitle} ${description}`.toLowerCase();
+
+  if (corpus.includes("transaction") && corpus.includes("categor")) {
+    return [
+      "Design categorization engine using merchant/category keyword mapping and deterministic rule priority.",
+      "Implement fallback classification for uncategorized transactions with confidence-based handling.",
+      "Persist categories in normalized storage and expose retrieval/update through API endpoints.",
+    ];
+  }
+
+  if (
+    domainLabels.includes("domain:payments") ||
+    corpus.includes("invoice") ||
+    corpus.includes("payment")
+  ) {
+    return [
+      "Model invoice/payment entities with status transitions, due dates, and reconciliation fields.",
+      "Implement service and API flows for creation/update, including idempotent handling for callbacks.",
+      "Persist transaction state and add automated tests for success, failure, and retry paths.",
+    ];
+  }
+
+  if (
+    domainLabels.includes("domain:notifications") ||
+    corpus.includes("reminder") ||
+    corpus.includes("notification")
+  ) {
+    return [
+      "Implement notification workflow with template rendering and channel-specific payload builders.",
+      "Add scheduling/trigger mechanism with retry policy and deduplication safeguards.",
+      "Persist delivery status and expose observability signals for monitoring and debugging.",
+    ];
+  }
+
+  if (domainLabels.includes("domain:auth") || corpus.includes("auth") || corpus.includes("jwt")) {
+    return [
+      "Implement authentication flow with secure credential validation and token lifecycle management.",
+      "Integrate authorization checks into protected routes and define role/permission boundaries.",
+      "Add security-focused tests for invalid credentials, token expiry, and unauthorized access.",
+    ];
+  }
+
+  return [
+    `Define service interfaces, data contracts, and module boundaries for "${taskTitle}".`,
+    `Implement the core workflow for "${truncateForSentence(description, 120)}" with explicit persistence/API integration.`,
+    "Add automated tests covering success paths, validation failures, and edge cases.",
+  ];
+};
+
+const buildContextualAcceptanceCriteria = (
+  taskTitle: string,
+  description: string,
+  domainLabels: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
+  const base = [
+    `${taskTitle} is implemented according to the specified workflow and business rules.`,
+    "Data changes are persisted correctly and retrievable through the expected API/service interface.",
+    "Validation and failure scenarios are handled with deterministic, tested behavior.",
+  ];
+
+  if (domainLabels.includes("domain:ui")) {
+    return [
+      ...base,
+      "UI reflects updated state correctly with loading/error states and expected user feedback.",
+    ];
+  }
+
+  if (domainLabels.includes("domain:notifications")) {
+    return [
+      ...base,
+      "Notification triggers execute once per eligible event and duplicate sends are prevented.",
+    ];
+  }
+
+  if (domainLabels.includes("domain:payments")) {
+    return [
+      ...base,
+      "Payment/invoice status transitions are consistent across service logic and persisted records.",
+    ];
+  }
+
+  if (description.toLowerCase().includes("categor")) {
+    return [
+      "Transactions are categorized based on predefined rules with deterministic precedence.",
+      "Uncategorized transactions trigger fallback classification and are flagged for review.",
+      "Categorization results are persisted and exposed through API responses and consumer views.",
+    ];
+  }
+
+  return base;
+};
+
+const truncateForSentence = (value: string, maxLength: number): string => {
+  const clean = value.replace(/\s+/g, " ").trim();
+  if (!clean) {
+    return "the task requirements";
+  }
+  if (clean.length <= maxLength) {
+    return clean;
+  }
+  return `${clean.slice(0, maxLength - 3).trim()}...`;
 };
 
 const extractTechnicalSteps = (value?: string): ReadonlyArray<string> => {

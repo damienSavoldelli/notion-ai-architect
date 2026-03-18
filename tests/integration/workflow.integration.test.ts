@@ -195,9 +195,9 @@ Deliver a production-ready implementation of this feature with proper validation
 
 ## 🛠 Technical Notes
 
-- Define implementation scope, interfaces, and data contracts for "Setup invoice domain".
-- Implement core logic with validation and error handling.
-- Add automated tests for success path, validation failures, and edge cases.
+- Model invoice/payment entities with status transitions, due dates, and reconciliation fields.
+- Implement service and API flows for creation/update, including idempotent handling for callbacks.
+- Persist transaction state and add automated tests for success, failure, and retry paths.
 
 ---
 
