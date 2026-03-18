@@ -206,6 +206,99 @@ describe("NotionClient", () => {
     ]);
   });
 
+  it("filters template guidance and [EXAMPLE] blocks from page content", async () => {
+    const mockSdk = createMockSdk({
+      queryImpl: vi.fn().mockResolvedValue({
+        results: [
+          {
+            object: "page",
+            id: "idea-1",
+            created_time: "2026-03-16T10:00:00.000Z",
+            properties: {
+              Title: {
+                type: "title",
+                title: [{ plain_text: "Build SaaS invoicing tool" }],
+              },
+              Status: {
+                type: "select",
+                select: { name: "new" },
+              },
+            },
+          },
+        ],
+        has_more: false,
+        next_cursor: null,
+      }),
+      blocksChildrenListImpl: vi.fn().mockResolvedValue({
+        results: [
+          {
+            type: "paragraph",
+            paragraph: {
+              rich_text: [
+                {
+                  plain_text:
+                    "⚠️ For best AI results, keep your idea concise and structured.",
+                },
+              ],
+            },
+          },
+          {
+            type: "heading_2",
+            heading_2: { rich_text: [{ plain_text: "Idea Summary" }] },
+          },
+          {
+            type: "paragraph",
+            paragraph: { rich_text: [{ plain_text: "User input:" }] },
+          },
+          {
+            type: "paragraph",
+            paragraph: { rich_text: [{ plain_text: "→" }] },
+          },
+          {
+            type: "paragraph",
+            paragraph: {
+              rich_text: [{ plain_text: "A simple invoicing app for freelancers." }],
+            },
+          },
+          {
+            type: "paragraph",
+            paragraph: { rich_text: [{ plain_text: "[EXAMPLE]" }] },
+          },
+          {
+            type: "bulleted_list_item",
+            bulleted_list_item: {
+              rich_text: [{ plain_text: "Invoice generation" }],
+            },
+          },
+          {
+            type: "heading_2",
+            heading_2: { rich_text: [{ plain_text: "Expected Outcome" }] },
+          },
+          {
+            type: "paragraph",
+            paragraph: {
+              rich_text: [{ plain_text: "Dashboard with overdue payment alerts." }],
+            },
+          },
+        ],
+        has_more: false,
+        next_cursor: null,
+      }),
+    });
+    const notionClient = new NotionClient(baseConfig, mockSdk);
+
+    await expect(notionClient.listNewIdeas()).resolves.toEqual([
+      {
+        id: "idea-1",
+        title: "Build SaaS invoicing tool",
+        content:
+          "Idea Summary\nA simple invoicing app for freelancers.\nExpected Outcome\nDashboard with overdue payment alerts.",
+        status: "new",
+        createdAt: new Date("2026-03-16T10:00:00.000Z"),
+      },
+    ]);
+  });
+
   it("maps Notion pages into Idea entities and paginates", async () => {
     const mockSdk = createMockSdk({
       queryImpl: vi

@@ -252,6 +252,7 @@ export class NotionClient implements NotionRepository {
   private async getIdeaPageContent(pageId: string): Promise<string | null> {
     const textParts: string[] = [];
     let nextCursor: string | undefined;
+    let skipExampleSection = false;
 
     while (true) {
       const response = await this.notion.blocks.children.list({
@@ -260,8 +261,24 @@ export class NotionClient implements NotionRepository {
       });
 
       for (const block of response.results) {
+        const blockType = getBlockType(block);
+        if (isHeadingBlockType(blockType)) {
+          skipExampleSection = false;
+        }
+
         const extracted = extractTextFromBlock(block);
         if (extracted) {
+          if (isExampleMarkerLine(extracted)) {
+            if (isStandaloneExampleMarker(extracted)) {
+              skipExampleSection = true;
+            }
+            continue;
+          }
+
+          if (skipExampleSection || isTemplateInstructionLine(extracted)) {
+            continue;
+          }
+
           textParts.push(extracted);
         }
       }
@@ -420,6 +437,54 @@ const extractTextFromBlock = (block: unknown): string | null => {
       return null;
   }
 };
+
+const getBlockType = (block: unknown): string | null => {
+  if (!isObject(block) || typeof block.type !== "string") {
+    return null;
+  }
+  return block.type;
+};
+
+const isHeadingBlockType = (blockType: string | null): boolean =>
+  blockType === "heading_1" ||
+  blockType === "heading_2" ||
+  blockType === "heading_3";
+
+const isExampleMarkerLine = (line: string): boolean =>
+  normalizeLineForFiltering(line).startsWith("[example]");
+
+const isStandaloneExampleMarker = (line: string): boolean =>
+  normalizeLineForFiltering(line) === "[example]" ||
+  normalizeLineForFiltering(line) === "[example]:";
+
+const isTemplateInstructionLine = (line: string): boolean => {
+  const normalized = normalizeLineForFiltering(line);
+
+  if (normalized === "user input:" || normalized === "user input") {
+    return true;
+  }
+
+  if (normalized === "->" || normalized === "→") {
+    return true;
+  }
+
+  if (/^-{3,}$/.test(normalized)) {
+    return true;
+  }
+
+  return (
+    normalized.includes("for best ai results") ||
+    normalized.includes("you can fill only the sections you need") ||
+    normalized.includes("please remove or replace all lines starting with [example]")
+  );
+};
+
+const normalizeLineForFiltering = (line: string): string =>
+  line
+    .replace(/^\s*(?:[-*]\s+|\d+\.\s+)?/, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 
 const extractRichTextField = (
   block: Record<string, unknown>,
