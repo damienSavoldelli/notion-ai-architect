@@ -18,6 +18,9 @@ export const generatedProjectSchema = z.object({
       title: z.string().min(1),
       description: z.string().min(1),
       priority: z.enum(["low", "medium", "high"]),
+      type: z.enum(["feature", "bug", "chore"]).optional(),
+      labels: z.array(z.string().min(1)).optional(),
+      acceptance_criteria: z.array(z.string().min(1)).optional(),
     }),
   ),
   roadmap: z.array(

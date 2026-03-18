@@ -17,6 +17,9 @@ export interface GeneratedTask {
   title: string;
   description: string;
   priority: TaskPriority;
+  type?: "feature" | "bug" | "chore";
+  labels?: ReadonlyArray<string>;
+  acceptance_criteria?: ReadonlyArray<string>;
 }
 
 export interface RoadmapSprint {

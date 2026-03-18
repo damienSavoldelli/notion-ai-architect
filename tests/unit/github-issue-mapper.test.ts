@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+import { mapTaskToGithubIssue } from "../../src/application/workflows/github-issue-mapper";
+
+describe("mapTaskToGithubIssue", () => {
+  it("maps task to a professional GitHub issue format", () => {
+    const mapped = mapTaskToGithubIssue({
+      title: "Implement JWT authentication system",
+      description: "Create secure login system",
+      priority: "high",
+      type: "feature",
+      labels: ["backend", "auth"],
+      acceptance_criteria: [
+        "User can login",
+        "JWT is generated",
+        "Protected routes work",
+      ],
+    });
+
+    expect(mapped).toEqual({
+      title: "[AI] Implement JWT authentication system",
+      body: `## 🧩 Task Overview
+
+Create secure login system
+
+---
+
+## 🎯 Objective
+
+Implement this feature to improve the product functionality.
+
+---
+
+## ✅ Acceptance Criteria
+
+- [ ] User can login
+- [ ] JWT is generated
+- [ ] Protected routes work
+
+---
+
+## 🏷 Metadata
+
+- Priority: high
+- Type: feature
+- Source: AI-generated from Notion
+
+---`,
+      labels: ["AI", "high", "feature", "backend", "auth"],
+    });
+  });
+
+  it("uses safe fallback acceptance criteria and no undefined label values", () => {
+    const mapped = mapTaskToGithubIssue({
+      title: "   ",
+      description: "",
+      priority: "medium",
+      labels: ["", "infra", "infra"],
+      acceptance_criteria: [],
+    });
+
+    expect(mapped.title).toBe("[AI] Untitled task");
+    expect(mapped.body).toContain("- [ ] Implementation is completed and reviewed.");
+    expect(mapped.body).toContain("- [ ] Tests are added or updated.");
+    expect(mapped.labels).toEqual(["AI", "medium", "chore", "misc", "infra"]);
+    expect(mapped.labels.some((label) => label === "undefined")).toBe(false);
+  });
+});
