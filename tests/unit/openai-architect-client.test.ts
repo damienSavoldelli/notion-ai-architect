@@ -60,7 +60,42 @@ describe("OpenAiArchitectClient", () => {
     });
   });
 
-  it("throws when OpenAI does not return valid JSON", async () => {
+  it("retries when first response is invalid JSON and succeeds on second", async () => {
+    const createImpl = vi
+      .fn()
+      .mockResolvedValueOnce({ output_text: "not-json" })
+      .mockResolvedValueOnce({
+        output_text: JSON.stringify({
+          product_overview: {
+            name: "Recovered project",
+            description: "Recovered on retry.",
+            target_users: ["devs"],
+          },
+          architecture: {
+            frontend: "React",
+            backend: "Fastify",
+            database: "PostgreSQL",
+            infrastructure: "Docker",
+          },
+          tasks: [
+            {
+              title: "Task",
+              description: "Task",
+              priority: "medium",
+            },
+          ],
+          roadmap: [],
+        }),
+      });
+    const client = new OpenAiArchitectClient(baseConfig, createMockSdk(createImpl));
+
+    await expect(client.generateProjectFromIdea("Build something")).resolves.toMatchObject({
+      product_overview: { name: "Recovered project" },
+    });
+    expect(createImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws after retries when OpenAI does not return valid JSON", async () => {
     const client = new OpenAiArchitectClient(
       baseConfig,
       createMockSdk(vi.fn().mockResolvedValue({ output_text: "not-json" })),
@@ -68,10 +103,10 @@ describe("OpenAiArchitectClient", () => {
 
     await expect(
       client.generateProjectFromIdea("Build something"),
-    ).rejects.toThrow("OpenAI response is not valid JSON.");
+    ).rejects.toThrow("OpenAI response is not valid JSON after retries.");
   });
 
-  it("throws when OpenAI text does not match expected schema", async () => {
+  it("throws after retries when OpenAI text does not match expected schema", async () => {
     const client = new OpenAiArchitectClient(
       baseConfig,
       createMockSdk(
@@ -101,6 +136,43 @@ describe("OpenAiArchitectClient", () => {
       ),
     );
 
-    await expect(client.generateProjectFromIdea("Build something")).rejects.toThrow();
+    await expect(client.generateProjectFromIdea("Build something")).rejects.toThrow(
+      "OpenAI response JSON does not match expected schema after retries.",
+    );
+  });
+
+  it("sanitizes input before sending prompt", async () => {
+    const createImpl = vi.fn().mockResolvedValue({
+      output_text: JSON.stringify({
+        product_overview: {
+          name: "Sanitized project",
+          description: "desc",
+          target_users: ["devs"],
+        },
+        architecture: {
+          frontend: "React",
+          backend: "Fastify",
+          database: "PostgreSQL",
+          infrastructure: "Docker",
+        },
+        tasks: [
+          {
+            title: "Task",
+            description: "Task",
+            priority: "low",
+          },
+        ],
+        roadmap: [],
+      }),
+    });
+    const client = new OpenAiArchitectClient(baseConfig, createMockSdk(createImpl));
+
+    const noisyIdea = `  Build\u0007   AI   app   ${"x".repeat(1300)}  `;
+    await client.generateProjectFromIdea(noisyIdea);
+
+    const calledInput = createImpl.mock.calls[0]?.[0]?.input as string;
+    expect(calledInput).toContain("Build AI app");
+    expect(calledInput).not.toContain("\u0007");
+    expect(calledInput.length).toBeLessThan(4000);
   });
 });

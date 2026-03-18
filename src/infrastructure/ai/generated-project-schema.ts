@@ -33,3 +33,8 @@ export const generatedProjectSchema = z.object({
 
 export const parseGeneratedProject = (value: unknown): GeneratedProject =>
   generatedProjectSchema.parse(value);
+
+export const safeParseGeneratedProject = (
+  value: unknown,
+): ReturnType<typeof generatedProjectSchema.safeParse> =>
+  generatedProjectSchema.safeParse(value);

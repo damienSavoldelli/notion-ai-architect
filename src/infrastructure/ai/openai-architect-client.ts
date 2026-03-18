@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { AiArchitectService } from "../../application/ports/ai-architect-service";
 import type { GeneratedProject } from "../../domain/entities/generated-project";
-import { parseGeneratedProject } from "./generated-project-schema";
+import { safeParseGeneratedProject } from "./generated-project-schema";
 
 const SYSTEM_PROMPT = `You are a senior software architect and AI engineer.
 
@@ -37,6 +37,7 @@ export interface OpenAiArchitectClientConfig {
 
 export class OpenAiArchitectClient implements AiArchitectService {
   private readonly openai: OpenAiSdk;
+  private static readonly MAX_ATTEMPTS = 2;
 
   constructor(
     private readonly config: OpenAiArchitectClientConfig,
@@ -46,30 +47,49 @@ export class OpenAiArchitectClient implements AiArchitectService {
   }
 
   async generateProjectFromIdea(idea: string): Promise<GeneratedProject> {
-    const response = await this.openai.responses.create({
-      model: this.config.model,
-      input: buildPrompt(idea),
-      temperature: 0.2,
-    });
+    const sanitizedIdea = sanitizeIdeaInput(idea);
+    let lastError: Error | null = null;
 
-    const outputText = extractOutputText(response);
-    if (!outputText) {
-      throw new Error("OpenAI response did not include any text output.");
+    for (let attempt = 1; attempt <= OpenAiArchitectClient.MAX_ATTEMPTS; attempt += 1) {
+      const response = await this.openai.responses.create({
+        model: this.config.model,
+        input: buildPrompt(sanitizedIdea, attempt),
+        temperature: 0.2,
+      });
+
+      const outputText = extractOutputText(response);
+      if (!outputText) {
+        lastError = new Error(
+          "OpenAI response did not include any text output after retries.",
+        );
+        continue;
+      }
+
+      const parsedJson = safeJsonParse(outputText);
+      if (!parsedJson.ok) {
+        lastError = new Error("OpenAI response is not valid JSON after retries.");
+        continue;
+      }
+
+      const validated = safeParseGeneratedProject(parsedJson.value);
+      if (!validated.success) {
+        lastError = new Error(
+          "OpenAI response JSON does not match expected schema after retries.",
+        );
+        continue;
+      }
+
+      return validated.data;
     }
 
-    let parsedJson: unknown;
-    try {
-      parsedJson = JSON.parse(outputText);
-    } catch {
-      throw new Error("OpenAI response is not valid JSON.");
-    }
-
-    return parseGeneratedProject(parsedJson);
+    throw lastError ?? new Error("OpenAI response validation failed.");
   }
 }
 
-const buildPrompt = (idea: string): string =>
+const buildPrompt = (idea: string, attempt: number): string =>
   `${SYSTEM_PROMPT}
+
+${attempt > 1 ? "Previous response was invalid. Return valid JSON only.\n" : ""}
 
 Project idea:
 
@@ -109,6 +129,28 @@ const extractOutputText = (response: unknown): string | null => {
 
   const merged = textParts.join("").trim();
   return merged || null;
+};
+
+const safeJsonParse = (
+  value: string,
+): { ok: true; value: unknown } | { ok: false } => {
+  try {
+    return { ok: true, value: JSON.parse(value) };
+  } catch {
+    return { ok: false };
+  }
+};
+
+const sanitizeIdeaInput = (idea: string): string => {
+  const withoutControlChars = idea.replace(
+    /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g,
+    " ",
+  );
+  const trimmed = withoutControlChars.replace(/\s+/g, " ").trim();
+  const maxLength = 1200;
+  const limited = trimmed.slice(0, maxLength);
+
+  return limited.length > 0 ? limited : "Untitled project idea";
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
