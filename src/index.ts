@@ -1,5 +1,12 @@
 export const bootstrap = (): string => "Notion AI Architect backend is ready.";
 
-if (import.meta.main) {
-  console.log(bootstrap());
-}
+export const maybePrintBootstrap = (
+  isMain: boolean,
+  log: (message: string) => void = console.log,
+): void => {
+  if (isMain) {
+    log(bootstrap());
+  }
+};
+
+maybePrintBootstrap(import.meta.main);

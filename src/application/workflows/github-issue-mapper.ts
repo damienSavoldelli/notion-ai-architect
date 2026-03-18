@@ -430,17 +430,6 @@ const buildContextualAcceptanceCriteria = (
   return base;
 };
 
-const truncateForSentence = (value: string, maxLength: number): string => {
-  const clean = value.replace(/\s+/g, " ").trim();
-  if (!clean) {
-    return "the task requirements";
-  }
-  if (clean.length <= maxLength) {
-    return clean;
-  }
-  return `${clean.slice(0, maxLength - 3).trim()}...`;
-};
-
 const buildTaskOverview = (
   taskTitle: string,
   description: string,

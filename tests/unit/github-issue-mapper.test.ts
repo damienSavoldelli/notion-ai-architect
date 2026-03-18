@@ -124,4 +124,127 @@ describe("mapTaskToGithubIssue", () => {
     );
     expect(mapped.labels).toContain("domain:payments");
   });
+
+  it("keeps explicit technical notes when they are concrete and multi-step", () => {
+    const mapped = mapTaskToGithubIssue({
+      projectName: "Data Platform",
+      title: "Design ETL pipeline contracts",
+      description: "Build ingestion contracts for telemetry payloads.",
+      priority: "medium",
+      type: "chore",
+      technical_notes: `
+- Define protobuf schema for ingestion payloads
+- Implement validation middleware in Fastify
+- Persist normalized rows in PostgreSQL staging tables
+      `,
+      acceptance_criteria: [
+        "Schema validation rejects malformed payloads",
+        "Valid payloads are stored in staging tables",
+      ],
+    });
+
+    expect(mapped.body).toContain(
+      "- Define protobuf schema for ingestion payloads",
+    );
+    expect(mapped.body).toContain(
+      "- Implement validation middleware in Fastify",
+    );
+    expect(mapped.body).toContain(
+      "- Persist normalized rows in PostgreSQL staging tables",
+    );
+  });
+
+  it("replaces generic technical notes with transaction categorization notes", () => {
+    const mapped = mapTaskToGithubIssue({
+      projectName: "Finance Core",
+      title: "Implement transaction categorization engine",
+      description: "Categorize transactions with deterministic rules.",
+      priority: "high",
+      type: "feature",
+      technical_notes: `
+- Define implementation scope
+- Implement core logic
+- Add automated tests
+      `,
+      acceptance_criteria: [
+        "works correctly",
+        "feature done",
+      ],
+    });
+
+    expect(mapped.body).toContain(
+      "Design categorization engine using merchant/category keyword mapping",
+    );
+    expect(mapped.body).toContain(
+      "Implement fallback classification for uncategorized transactions",
+    );
+    expect(mapped.body).toContain(
+      "Persist categories in normalized storage",
+    );
+  });
+
+  it("builds OCR-specific technical notes and acceptance criteria", () => {
+    const mapped = mapTaskToGithubIssue({
+      projectName: "Doc AI",
+      title: "Extract structured fields from OCR scans",
+      description:
+        "Parse OCR output into typed entities and persist extraction metadata.",
+      priority: "high",
+      type: "feature",
+      acceptance_criteria: ["works correctly"],
+    });
+
+    expect(mapped.body).toContain("Build OCR-to-structured pipeline");
+    expect(mapped.body).toContain("Normalize extracted fields into typed payloads");
+    expect(mapped.body).toContain("Persist extraction results with versioning");
+    expect(mapped.body).toContain(
+      "OCR output is transformed into structured fields according to the target schema.",
+    );
+    expect(mapped.body).toContain(
+      "Structured extraction results are persisted and retrievable through API responses.",
+    );
+  });
+
+  it("builds notification-specific technical notes and acceptance criteria", () => {
+    const mapped = mapTaskToGithubIssue({
+      projectName: "Ops Assistant",
+      title: "Implement reminder notification scheduler",
+      description:
+        "Trigger reminder notifications with retry and deduplication safeguards.",
+      priority: "medium",
+      type: "feature",
+      acceptance_criteria: ["functional"],
+    });
+
+    expect(mapped.body).toContain(
+      "Implement notification workflow with template rendering",
+    );
+    expect(mapped.body).toContain(
+      "Add scheduling/trigger mechanism with retry policy and deduplication safeguards.",
+    );
+    expect(mapped.body).toContain(
+      "Notification triggers execute once per eligible event and duplicate sends are prevented.",
+    );
+  });
+
+  it("falls back to categorization acceptance criteria when generic criteria are provided", () => {
+    const mapped = mapTaskToGithubIssue({
+      projectName: "Support Ops",
+      title: "Categorize support tickets by intent",
+      description: "Categorize incoming support tickets and flag low confidence.",
+      priority: "medium",
+      type: "feature",
+      acceptance_criteria: ["done", "works properly"],
+    });
+
+    expect(mapped.body).toContain(
+      "Transactions are categorized based on predefined rules with deterministic precedence.",
+    );
+    expect(mapped.body).toContain(
+      "Uncategorized transactions trigger fallback classification and are flagged for review.",
+    );
+    expect(mapped.body).toContain(
+      "Categorization results are persisted and exposed through API responses and consumer views.",
+    );
+  });
 });
