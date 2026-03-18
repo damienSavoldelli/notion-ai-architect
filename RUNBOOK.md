@@ -6,6 +6,8 @@ Run a clean end-to-end demo:
 
 `Notion Idea -> AI plan -> Notion Project/Tasks -> GitHub Issues`
 
+For the live pitch sequence, use [DEMO_SCRIPT.md](./DEMO_SCRIPT.md).
+
 ## Prerequisites
 
 - `.env` is filled with valid Notion/OpenAI/GitHub credentials.

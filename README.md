@@ -86,6 +86,7 @@ Current hardening scope on `main` is focused on demo reliability:
 Operational guide:
 
 - See [RUNBOOK.md](./RUNBOOK.md)
+- See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)
 
 ## Releases
 
