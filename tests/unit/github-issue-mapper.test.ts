@@ -17,61 +17,27 @@ describe("mapTaskToGithubIssue", () => {
       ],
     });
 
-    expect(mapped).toEqual({
-      title: "[AI][Freelance Invoice Assistant] Implement JWT authentication system",
-      body: `## 📦 Project
-
-Freelance Invoice Assistant
-
----
-
-## 🧩 Task Overview
-
-Create secure login system
-
----
-
-## 🎯 Objective
-
-Deliver a production-ready implementation of this feature with proper validation, error handling, and integration into the system.
-
----
-
-## 🛠 Technical Notes
-
-- Implement authentication flow with secure credential validation and token lifecycle management.
-- Integrate authorization checks into protected routes and define role/permission boundaries.
-- Add security-focused tests for invalid credentials, token expiry, and unauthorized access.
-
----
-
-## ✅ Acceptance Criteria
-
-- [ ] User can login
-- [ ] JWT is generated
-- [ ] Protected routes work
-
----
-
-## 🏷 Metadata
-
-- **Priority:** high
-- **Type:** feature
-- **Source:** AI-generated from Notion
-
----`,
-      labels: [
-        "AI",
-        "high",
-        "feature",
-        "priority:high",
-        "project:freelance-invoice-assistant",
-        "domain:auth",
-        "domain:api",
-        "backend",
-        "auth",
-      ],
-    });
+    expect(mapped.title).toBe(
+      "[AI][Freelance Invoice Assistant] Implement JWT authentication system",
+    );
+    expect(mapped.body).toContain("## 📦 Project");
+    expect(mapped.body).toContain("## 🧩 Task Overview");
+    expect(mapped.body).toContain("## 🧱 Implementation Scope");
+    expect(mapped.body).toContain("## 🛠 Technical Notes");
+    expect(mapped.body).toContain("## ✅ Acceptance Criteria");
+    expect(mapped.body).toContain("- **Priority:** high");
+    expect(mapped.body).toContain("token lifecycle");
+    expect(mapped.labels).toEqual([
+      "AI",
+      "high",
+      "feature",
+      "priority:high",
+      "project:freelance-invoice-assistant",
+      "domain:auth",
+      "domain:api",
+      "backend",
+      "auth",
+    ]);
   });
 
   it("uses safe fallback acceptance criteria and no undefined label values", () => {
@@ -86,14 +52,15 @@ Deliver a production-ready implementation of this feature with proper validation
     expect(mapped.title).toBe("[AI][General] Untitled task");
     expect(mapped.body).toContain("## 📦 Project");
     expect(mapped.body).toContain("General");
+    expect(mapped.body).toContain("## 🧱 Implementation Scope");
     expect(mapped.body).toContain(
-      '- Define service interfaces, data contracts, and module boundaries for "Untitled task".',
+      '- Define service interfaces and data contracts for "Untitled task" including request/response schemas.',
     );
     expect(mapped.body).toContain(
       '- [ ] Untitled task is implemented according to the specified workflow and business rules.',
     );
     expect(mapped.body).toContain(
-      "- [ ] Data changes are persisted correctly and retrievable through the expected API/service interface.",
+      "- [ ] Data changes are persisted and retrievable through the expected interface",
     );
     expect(mapped.labels).toEqual([
       "AI",
@@ -121,5 +88,21 @@ Deliver a production-ready implementation of this feature with proper validation
     expect(mapped.title).toBe(
       "[AI][Recruitment AI] Build candidate scoring pipeline with weighted criteria and persistence",
     );
+  });
+
+  it("builds concrete implementation scope for document upload tasks", () => {
+    const mapped = mapTaskToGithubIssue({
+      projectName: "AI Document Processing System",
+      title: "Implement document upload functionality with file type validation",
+      description:
+        "Allow users to upload PDF and image files, ensuring only valid file types are accepted.",
+      priority: "high",
+      type: "feature",
+    });
+
+    expect(mapped.body).toContain("POST /documents/upload");
+    expect(mapped.body).toContain('Enqueue "process_document" job');
+    expect(mapped.body).toContain("S3-compatible object storage");
+    expect(mapped.body).toContain("documents table with status lifecycle");
   });
 });

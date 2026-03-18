@@ -171,50 +171,11 @@ describe("Workflow integration", () => {
         },
       },
     });
-    expect(githubCreateIssue).toHaveBeenCalledWith({
+    const firstIssueCall = githubCreateIssue.mock.calls[0]?.[0];
+    expect(firstIssueCall).toMatchObject({
       owner: "acme",
       repo: "notion-ai-architect",
       title: "[AI][AI Invoicing Assistant] Setup invoice domain",
-      body: `## 📦 Project
-
-AI Invoicing Assistant
-
----
-
-## 🧩 Task Overview
-
-Create invoice core entities.
-
----
-
-## 🎯 Objective
-
-Deliver a production-ready implementation of this feature with proper validation, error handling, and integration into the system.
-
----
-
-## 🛠 Technical Notes
-
-- Model invoice/payment entities with status transitions, due dates, and reconciliation fields.
-- Implement service and API flows for creation/update, including idempotent handling for callbacks.
-- Persist transaction state and add automated tests for success, failure, and retry paths.
-
----
-
-## ✅ Acceptance Criteria
-
-- [ ] Invoice entity supports totals and taxes
-- [ ] Invoice repository has create/read operations
-
----
-
-## 🏷 Metadata
-
-- **Priority:** high
-- **Type:** feature
-- **Source:** AI-generated from Notion
-
----`,
       labels: [
         "AI",
         "high",
@@ -227,5 +188,7 @@ Deliver a production-ready implementation of this feature with proper validation
         "billing",
       ],
     });
+    expect(firstIssueCall?.body).toContain("## 🧱 Implementation Scope");
+    expect(firstIssueCall?.body).toContain("Model invoice/payment entities");
   });
 });

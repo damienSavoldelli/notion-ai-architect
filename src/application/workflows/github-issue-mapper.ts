@@ -18,6 +18,13 @@ export interface GithubIssuePayload {
   labels: ReadonlyArray<string>;
 }
 
+interface ImplementationScope {
+  api: string;
+  processing: string;
+  storage: string;
+  database: string;
+}
+
 export const mapTaskToGithubIssue = (
   task: GithubIssueTaskInput,
 ): GithubIssuePayload => {
@@ -30,17 +37,30 @@ export const mapTaskToGithubIssue = (
   const projectLabel = `project:${slugifyProjectName(projectName)}`;
   const priorityLabel = `priority:${priority}`;
   const domainLabels = inferDomainLabels(task);
+  const implementationScope = buildImplementationScope(
+    taskTitle,
+    description,
+    domainLabels,
+  );
+  const taskOverview = buildTaskOverview(
+    taskTitle,
+    description,
+    implementationScope,
+    domainLabels,
+  );
   const technicalNotes = normalizeTechnicalNotes(
     task.technical_notes,
     taskTitle,
     description,
     domainLabels,
+    implementationScope,
   );
   const acceptanceCriteria = normalizeAcceptanceCriteria(
     task.acceptance_criteria,
     taskTitle,
     description,
     domainLabels,
+    implementationScope,
   );
 
   const body = `## 📦 Project
@@ -51,13 +71,20 @@ ${projectName}
 
 ## 🧩 Task Overview
 
-${description}
+${taskOverview}
 
 ---
 
-## 🎯 Objective
+## 🧱 Implementation Scope
 
-Deliver a production-ready implementation of this feature with proper validation, error handling, and integration into the system.
+- **API**:
+  - ${implementationScope.api}
+- **Processing**:
+  - ${implementationScope.processing}
+- **Storage**:
+  - ${implementationScope.storage}
+- **Database**:
+  - ${implementationScope.database}
 
 ---
 
@@ -146,6 +173,7 @@ const normalizeAcceptanceCriteria = (
   taskTitle?: string,
   description?: string,
   domainLabels: ReadonlyArray<string> = [],
+  scope?: ImplementationScope,
 ): ReadonlyArray<string> => {
   const cleanCriteria = (acceptanceCriteria ?? [])
     .map((criteria) => criteria.trim())
@@ -159,6 +187,7 @@ const normalizeAcceptanceCriteria = (
     taskTitle ?? "the feature",
     description ?? "",
     domainLabels,
+    scope ?? buildImplementationScope(taskTitle ?? "the feature", description ?? "", domainLabels),
   );
 };
 
@@ -167,13 +196,14 @@ const normalizeTechnicalNotes = (
   taskTitle: string,
   description: string,
   domainLabels: ReadonlyArray<string>,
+  scope: ImplementationScope,
 ): string => {
   const extractedSteps = extractTechnicalSteps(value);
   if (extractedSteps.length >= 2 && !areGenericTechnicalSteps(extractedSteps)) {
     return extractedSteps.map((step) => `- ${step}`).join("\n");
   }
 
-  return buildContextualTechnicalNotes(taskTitle, description, domainLabels)
+  return buildContextualTechnicalNotes(taskTitle, description, domainLabels, scope)
     .map((step) => `- ${step}`)
     .join("\n");
 };
@@ -242,8 +272,11 @@ const buildContextualTechnicalNotes = (
   taskTitle: string,
   description: string,
   domainLabels: ReadonlyArray<string>,
+  scope: ImplementationScope,
 ): ReadonlyArray<string> => {
   const corpus = `${taskTitle} ${description}`.toLowerCase();
+  const isDocumentWorkflow =
+    /document|upload|file|ocr|extract|parsing|processing/.test(corpus);
 
   if (corpus.includes("transaction") && corpus.includes("categor")) {
     return [
@@ -253,10 +286,27 @@ const buildContextualTechnicalNotes = (
     ];
   }
 
+  if (isDocumentWorkflow && /upload|file/.test(corpus)) {
+    return [
+      "Validate MIME type and file signature server-side before accepting upload payloads.",
+      "Store raw files in S3-compatible object storage and persist storage keys with document metadata.",
+      "Enqueue asynchronous processing jobs (e.g. BullMQ/Redis) and track lifecycle status in persistence.",
+    ];
+  }
+
+  if (isDocumentWorkflow && /ocr|extract|structured/.test(corpus)) {
+    return [
+      "Build OCR-to-structured pipeline with schema-based extraction and confidence/error handling.",
+      "Normalize extracted fields into typed payloads before persistence and downstream API exposure.",
+      "Persist extraction results with versioning and processing metadata for traceability.",
+    ];
+  }
+
   if (
-    domainLabels.includes("domain:payments") ||
-    corpus.includes("invoice") ||
-    corpus.includes("payment")
+    !isDocumentWorkflow &&
+    (domainLabels.includes("domain:payments") ||
+      corpus.includes("invoice") ||
+      corpus.includes("payment"))
   ) {
     return [
       "Model invoice/payment entities with status transitions, due dates, and reconciliation fields.",
@@ -286,9 +336,9 @@ const buildContextualTechnicalNotes = (
   }
 
   return [
-    `Define service interfaces, data contracts, and module boundaries for "${taskTitle}".`,
-    `Implement the core workflow for "${truncateForSentence(description, 120)}" with explicit persistence/API integration.`,
-    "Add automated tests covering success paths, validation failures, and edge cases.",
+    `Define service interfaces and data contracts for "${taskTitle}" including request/response schemas.`,
+    `Implement workflow with explicit API and processing boundaries: ${scope.api}; ${scope.processing}.`,
+    `Persist state in storage/database layers: ${scope.storage}; ${scope.database}.`,
   ];
 };
 
@@ -296,10 +346,31 @@ const buildContextualAcceptanceCriteria = (
   taskTitle: string,
   description: string,
   domainLabels: ReadonlyArray<string>,
+  scope: ImplementationScope,
 ): ReadonlyArray<string> => {
+  const corpus = `${taskTitle} ${description}`.toLowerCase();
+  const isDocumentWorkflow =
+    /document|upload|file|ocr|extract|parsing|processing/.test(corpus);
+
+  if (isDocumentWorkflow && /upload|file/.test(corpus)) {
+    return [
+      "Uploaded files pass server-side MIME/signature validation before processing.",
+      "Valid uploads are stored in object storage and linked to persisted document records.",
+      "Asynchronous processing jobs are enqueued with status transitions (pending, processing, done, failed).",
+    ];
+  }
+
+  if (isDocumentWorkflow && /ocr|extract|structured/.test(corpus)) {
+    return [
+      "OCR output is transformed into structured fields according to the target schema.",
+      "Low-confidence or malformed extraction results are flagged with deterministic fallback/error handling.",
+      "Structured extraction results are persisted and retrievable through API responses.",
+    ];
+  }
+
   const base = [
     `${taskTitle} is implemented according to the specified workflow and business rules.`,
-    "Data changes are persisted correctly and retrievable through the expected API/service interface.",
+    `Data changes are persisted and retrievable through the expected interface (${scope.database}).`,
     "Validation and failure scenarios are handled with deterministic, tested behavior.",
   ];
 
@@ -324,7 +395,7 @@ const buildContextualAcceptanceCriteria = (
     ];
   }
 
-  if (description.toLowerCase().includes("categor")) {
+  if (corpus.includes("categor")) {
     return [
       "Transactions are categorized based on predefined rules with deterministic precedence.",
       "Uncategorized transactions trigger fallback classification and are flagged for review.",
@@ -344,6 +415,95 @@ const truncateForSentence = (value: string, maxLength: number): string => {
     return clean;
   }
   return `${clean.slice(0, maxLength - 3).trim()}...`;
+};
+
+const buildTaskOverview = (
+  taskTitle: string,
+  description: string,
+  scope: ImplementationScope,
+  domainLabels: ReadonlyArray<string>,
+): string => {
+  const cleanDescription = normalizeBodyText(description);
+  const corpus = `${taskTitle} ${cleanDescription}`.toLowerCase();
+  const isGeneric =
+    cleanDescription.length < 60 ||
+    /allow users|create module|implement feature|build system|develop logic/.test(corpus);
+
+  if (/document|upload|file/.test(corpus)) {
+    return "Implement secure document upload with server-side file validation, temporary object storage, and asynchronous processing handoff.";
+  }
+
+  if (/ocr|extract|structured/.test(corpus)) {
+    return "Implement structured data extraction from OCR output with schema mapping, confidence handling, and persistent API-ready results.";
+  }
+
+  if (!isGeneric) {
+    return cleanDescription;
+  }
+
+  const uiHint = domainLabels.includes("domain:ui")
+    ? " and UI state updates"
+    : "";
+  return `Implement ${taskTitle.toLowerCase()} with ${scope.api}, ${scope.processing}, and ${scope.database}${uiHint}.`;
+};
+
+const buildImplementationScope = (
+  taskTitle: string,
+  description: string,
+  domainLabels: ReadonlyArray<string>,
+): ImplementationScope => {
+  const corpus = `${taskTitle} ${description}`.toLowerCase();
+
+  if (/upload|file|document/.test(corpus) && !/extract|ocr/.test(corpus)) {
+    return {
+      api: "POST /documents/upload (multipart) with server-side type/size validation.",
+      processing:
+        'Enqueue "process_document" job in an asynchronous queue (BullMQ/Redis) after successful upload.',
+      storage: "Store raw files in S3-compatible object storage using scoped temporary access.",
+      database:
+        "Persist documents table with status lifecycle (pending, processing, done, failed) and storage key.",
+    };
+  }
+
+  if (/ocr|extract|structured/.test(corpus)) {
+    return {
+      api: "POST /documents/:id/extract and GET /documents/:id/extraction-result endpoints.",
+      processing:
+        "Run OCR normalization and schema-based extraction pipeline with retry/error handling.",
+      storage: "Store OCR raw output and normalized extraction payload artifacts for traceability.",
+      database:
+        "Persist extracted_data records with confidence score, schema version, and document linkage.",
+    };
+  }
+
+  if (domainLabels.includes("domain:payments") || /invoice|payment|billing/.test(corpus)) {
+    return {
+      api: "Expose payment/invoice service endpoints for create, update, and status retrieval.",
+      processing: "Execute idempotent payment workflow with callback handling and retry-safe transitions.",
+      storage: "Store payment event payloads and reconciliation artifacts for auditability.",
+      database:
+        "Persist invoice/payment tables with explicit status transitions and indexed references.",
+    };
+  }
+
+  if (domainLabels.includes("domain:auth") || /auth|jwt|login/.test(corpus)) {
+    return {
+      api: "Expose authentication endpoints for sign-in/token refresh and protected resource access.",
+      processing: "Run credential verification and token issuance/validation with expiry handling.",
+      storage: "Store secure credential hashes and token/session revocation state.",
+      database:
+        "Persist user/session data model with role/permission mapping for authorization checks.",
+    };
+  }
+
+  return {
+    api: `Expose API/service contract required for "${taskTitle}".`,
+    processing:
+      "Implement deterministic processing workflow with explicit error handling and retry behavior.",
+    storage: "Store input/output artifacts in durable storage with access lifecycle management.",
+    database:
+      "Persist state transitions and processing metadata in relational storage for retrieval and auditing.",
+  };
 };
 
 const extractTechnicalSteps = (value?: string): ReadonlyArray<string> => {

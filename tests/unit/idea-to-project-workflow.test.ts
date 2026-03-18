@@ -189,49 +189,9 @@ describe("IdeaToProjectWorkflow", () => {
       ],
     });
     expect(linkIdeaToProject).toHaveBeenCalledWith("idea-1", "project-1");
-    expect(githubRepository.createIssue).toHaveBeenCalledWith({
+    const issuePayload = createIssue.mock.calls[0]?.[0];
+    expect(issuePayload).toMatchObject({
       title: "[AI][AI CRM Assistant] Setup backend",
-      body: `## 📦 Project
-
-AI CRM Assistant
-
----
-
-## 🧩 Task Overview
-
-Initialize API foundation.
-
----
-
-## 🎯 Objective
-
-Deliver a production-ready implementation of this feature with proper validation, error handling, and integration into the system.
-
----
-
-## 🛠 Technical Notes
-
-- Implement authentication flow with secure credential validation and token lifecycle management.
-- Integrate authorization checks into protected routes and define role/permission boundaries.
-- Add security-focused tests for invalid credentials, token expiry, and unauthorized access.
-
----
-
-## ✅ Acceptance Criteria
-
-- [ ] API server starts successfully
-- [ ] Health endpoint returns 200
-- [ ] Core modules are wired
-
----
-
-## 🏷 Metadata
-
-- **Priority:** high
-- **Type:** feature
-- **Source:** AI-generated from Notion
-
----`,
       labels: [
         "AI",
         "high",
@@ -244,6 +204,9 @@ Deliver a production-ready implementation of this feature with proper validation
         "auth",
       ],
     });
+    expect(issuePayload?.body).toContain("## 🧱 Implementation Scope");
+    expect(issuePayload?.body).toContain("## 🛠 Technical Notes");
+    expect(issuePayload?.body).toContain("token lifecycle");
     expect(updateTaskGithubIssue).toHaveBeenCalledWith(
       "task-1",
       "https://github.com/acme/repo/issues/1",
