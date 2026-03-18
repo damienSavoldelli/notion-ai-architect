@@ -277,6 +277,10 @@ const buildContextualTechnicalNotes = (
   const corpus = `${taskTitle} ${description}`.toLowerCase();
   const isDocumentWorkflow =
     /document|upload|file|ocr|extract|parsing|processing/.test(corpus);
+  const isOpenBankingWorkflow =
+    /plaid|bank account|account connection|open banking|transaction feed|institution/.test(
+      corpus,
+    );
 
   if (corpus.includes("transaction") && corpus.includes("categor")) {
     return [
@@ -299,6 +303,14 @@ const buildContextualTechnicalNotes = (
       "Build OCR-to-structured pipeline with schema-based extraction and confidence/error handling.",
       "Normalize extracted fields into typed payloads before persistence and downstream API exposure.",
       "Persist extraction results with versioning and processing metadata for traceability.",
+    ];
+  }
+
+  if (isOpenBankingWorkflow) {
+    return [
+      "Integrate Plaid Link token flow with secure public_token exchange and encrypted access token storage.",
+      "Implement account and transaction sync workflow with incremental cursors, retry handling, and webhook-triggered refresh.",
+      "Persist normalized bank account/transaction entities and expose retrieval endpoints for downstream analytics.",
     ];
   }
 
@@ -351,6 +363,18 @@ const buildContextualAcceptanceCriteria = (
   const corpus = `${taskTitle} ${description}`.toLowerCase();
   const isDocumentWorkflow =
     /document|upload|file|ocr|extract|parsing|processing/.test(corpus);
+  const isOpenBankingWorkflow =
+    /plaid|bank account|account connection|open banking|transaction feed|institution/.test(
+      corpus,
+    );
+
+  if (isOpenBankingWorkflow) {
+    return [
+      "User can complete Plaid account linking and connected accounts are persisted with secure token handling.",
+      "Account and transaction sync fetches incremental updates and handles upstream API failures deterministically.",
+      "Connected account and transaction data is retrievable via API endpoints used by product workflows.",
+    ];
+  }
 
   if (isDocumentWorkflow && /upload|file/.test(corpus)) {
     return [
@@ -428,6 +452,10 @@ const buildTaskOverview = (
   const isGeneric =
     cleanDescription.length < 60 ||
     /allow users|create module|implement feature|build system|develop logic/.test(corpus);
+  const isOpenBankingWorkflow =
+    /plaid|bank account|account connection|open banking|transaction feed|institution/.test(
+      corpus,
+    );
 
   if (/document|upload|file/.test(corpus)) {
     return "Implement secure document upload with server-side file validation, temporary object storage, and asynchronous processing handoff.";
@@ -437,6 +465,10 @@ const buildTaskOverview = (
     return "Implement structured data extraction from OCR output with schema mapping, confidence handling, and persistent API-ready results.";
   }
 
+  if (isOpenBankingWorkflow) {
+    return "Implement secure bank account connectivity with Plaid token exchange, incremental transaction sync, and persisted account/transaction state for downstream product workflows.";
+  }
+
   if (!isGeneric) {
     return cleanDescription;
   }
@@ -444,7 +476,7 @@ const buildTaskOverview = (
   const uiHint = domainLabels.includes("domain:ui")
     ? " and UI state updates"
     : "";
-  return `Implement ${taskTitle.toLowerCase()} with ${scope.api}, ${scope.processing}, and ${scope.database}${uiHint}.`;
+  return `${normalizeOverviewTitle(taskTitle)} with ${scope.api} ${scope.processing} ${scope.database}${uiHint}`;
 };
 
 const buildImplementationScope = (
@@ -453,6 +485,21 @@ const buildImplementationScope = (
   domainLabels: ReadonlyArray<string>,
 ): ImplementationScope => {
   const corpus = `${taskTitle} ${description}`.toLowerCase();
+  const isOpenBankingWorkflow =
+    /plaid|bank account|account connection|open banking|transaction feed|institution/.test(
+      corpus,
+    );
+
+  if (isOpenBankingWorkflow) {
+    return {
+      api: "POST /bank-connections/link, GET /bank-connections/:id/accounts, and sync trigger endpoints.",
+      processing:
+        "Handle Plaid Link token exchange, fetch account/transaction data, and schedule periodic sync jobs.",
+      storage: "Store provider access tokens encrypted and keep sync checkpoints for incremental updates.",
+      database:
+        "Persist bank_accounts and transactions tables with connection status and reconciliation metadata.",
+    };
+  }
 
   if (/upload|file|document/.test(corpus) && !/extract|ocr/.test(corpus)) {
     return {
@@ -506,6 +553,24 @@ const buildImplementationScope = (
   };
 };
 
+const normalizeOverviewTitle = (taskTitle: string): string => {
+  const clean = taskTitle.replace(/\s+/g, " ").trim();
+  if (!clean) {
+    return "Implement the task";
+  }
+
+  const isVerbLed =
+    /^(implement|integrate|build|create|develop|design|configure|add|setup|set up|expose|persist|validate)\b/i.test(
+      clean,
+    );
+
+  if (isVerbLed) {
+    return clean;
+  }
+
+  return `Implement ${clean.toLowerCase()}`;
+};
+
 const extractTechnicalSteps = (value?: string): ReadonlyArray<string> => {
   const clean = value?.replace(/\r\n/g, "\n").trim();
   if (!clean) {
@@ -532,8 +597,21 @@ const inferDomainLabels = (task: GithubIssueTaskInput): ReadonlyArray<string> =>
     .toLowerCase();
 
   const rules: ReadonlyArray<{ label: string; keywords: ReadonlyArray<string> }> = [
+    {
+      label: "domain:payments",
+      keywords: [
+        "plaid",
+        "bank account",
+        "account connection",
+        "transaction",
+        "finance",
+        "payment",
+        "invoice",
+        "billing",
+        "stripe",
+      ],
+    },
     { label: "domain:auth", keywords: ["auth", "jwt", "login", "oauth"] },
-    { label: "domain:payments", keywords: ["payment", "invoice", "billing", "stripe"] },
     {
       label: "domain:notifications",
       keywords: ["notification", "reminder", "email", "sms", "webhook"],

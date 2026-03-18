@@ -105,4 +105,23 @@ describe("mapTaskToGithubIssue", () => {
     expect(mapped.body).toContain("S3-compatible object storage");
     expect(mapped.body).toContain("documents table with status lifecycle");
   });
+
+  it("prioritizes open-banking scope for plaid integration tasks", () => {
+    const mapped = mapTaskToGithubIssue({
+      projectName: "AI Personal Finance",
+      title: "Integrate Plaid API for bank account connections",
+      description:
+        "Connect user bank accounts and sync transactions securely for financial insights.",
+      priority: "high",
+      type: "feature",
+    });
+
+    expect(mapped.body).toContain("POST /bank-connections/link");
+    expect(mapped.body).toContain("Plaid Link token exchange");
+    expect(mapped.body).toContain("bank_accounts and transactions tables");
+    expect(mapped.body).toContain(
+      "Implement secure bank account connectivity with Plaid token exchange",
+    );
+    expect(mapped.labels).toContain("domain:payments");
+  });
 });
