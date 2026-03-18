@@ -9,6 +9,7 @@ Run a clean end-to-end demo:
 ## Prerequisites
 
 - `.env` is filled with valid Notion/OpenAI/GitHub credentials.
+- `OPENAI_MODEL` is pinned to `gpt-4o-mini` for predictable demo behavior.
 - Notion databases are configured (`Ideas`, `Projects`, `Tasks`).
 - The new idea has `Status = new`.
 

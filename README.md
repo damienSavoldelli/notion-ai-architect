@@ -44,6 +44,7 @@ tests/
 1. Install dependencies: `bun install`
 2. Create env file: `cp .env.example .env`
 3. Fill `.env` with your Notion, OpenAI and GitHub credentials
+   Recommended for demo stability: `OPENAI_MODEL=gpt-4o-mini`
 4. Run tests: `bun test`
 5. Run one worker cycle: `bun run worker:run`
 6. Run API server: `bun run api:run`
@@ -55,7 +56,7 @@ tests/
 - `NOTION_PROJECTS_DATABASE_ID`
 - `NOTION_TASKS_DATABASE_ID`
 - `OPENAI_API_KEY`
-- `OPENAI_MODEL` (default suggested: `gpt-5.2`)
+- `OPENAI_MODEL` (demo pinned: `gpt-4o-mini`)
 - `GITHUB_TOKEN`
 - `GITHUB_OWNER`
 - `GITHUB_REPO`
