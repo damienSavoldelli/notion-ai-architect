@@ -22,6 +22,7 @@ interface OpenAiResponsesApi {
   create(params: {
     model: string;
     input: string;
+    temperature?: number;
   }): Promise<unknown>;
 }
 
@@ -32,6 +33,7 @@ interface OpenAiSdk {
 export interface OpenAiArchitectClientConfig {
   apiKey: string;
   model: string;
+  temperature?: number;
 }
 
 export class OpenAiArchitectClient implements AiArchitectService {
@@ -53,6 +55,7 @@ export class OpenAiArchitectClient implements AiArchitectService {
       const response = await this.openai.responses.create({
         model: this.config.model,
         input: buildPrompt(sanitizedIdea, attempt),
+        temperature: this.config.temperature ?? 0.2,
       });
 
       const outputText = extractOutputText(response);
