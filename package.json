@@ -9,6 +9,7 @@
     "api:run": "bun src/api/run-api.ts",
     "worker:run": "bun src/worker/run-worker.ts",
     "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
