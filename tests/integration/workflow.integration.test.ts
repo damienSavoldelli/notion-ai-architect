@@ -156,7 +156,13 @@ describe("Workflow integration", () => {
       owner: "acme",
       repo: "notion-ai-architect",
       title: "[AI][AI Invoicing Assistant] Setup invoice domain",
-      body: `## 🧩 Task Overview
+      body: `## 📦 Project
+
+AI Invoicing Assistant
+
+---
+
+## 🧩 Task Overview
 
 Create invoice core entities.
 

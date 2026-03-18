@@ -19,7 +19,13 @@ describe("mapTaskToGithubIssue", () => {
 
     expect(mapped).toEqual({
       title: "[AI][Freelance Invoice Assistant] Implement JWT authentication system",
-      body: `## 🧩 Task Overview
+      body: `## 📦 Project
+
+Freelance Invoice Assistant
+
+---
+
+## 🧩 Task Overview
 
 Create secure login system
 

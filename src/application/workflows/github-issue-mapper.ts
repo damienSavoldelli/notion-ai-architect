@@ -35,7 +35,13 @@ export const mapTaskToGithubIssue = (
     task.acceptance_criteria,
   );
 
-  const body = `## 🧩 Task Overview
+  const body = `## 📦 Project
+
+${projectName}
+
+---
+
+## 🧩 Task Overview
 
 ${description}
 

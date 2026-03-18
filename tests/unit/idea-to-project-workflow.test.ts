@@ -191,7 +191,13 @@ describe("IdeaToProjectWorkflow", () => {
     expect(linkIdeaToProject).toHaveBeenCalledWith("idea-1", "project-1");
     expect(githubRepository.createIssue).toHaveBeenCalledWith({
       title: "[AI][AI CRM Assistant] Setup backend",
-      body: `## 🧩 Task Overview
+      body: `## 📦 Project
+
+AI CRM Assistant
+
+---
+
+## 🧩 Task Overview
 
 Initialize API foundation.
 
