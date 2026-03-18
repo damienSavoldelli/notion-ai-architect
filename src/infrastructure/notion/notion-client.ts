@@ -58,6 +58,51 @@ export class NotionClient implements NotionRepository {
     return ideas;
   }
 
+  async resetStaleProcessingIdeas(maxAgeMinutes: number): Promise<number> {
+    const staleIdeaIds: string[] = [];
+    const cutoffIso = new Date(
+      Date.now() - Math.max(1, maxAgeMinutes) * 60_000,
+    ).toISOString();
+    let nextCursor: string | undefined;
+
+    while (true) {
+      const response = await this.notion.dataSources.query({
+        data_source_id: this.config.ideasDatabaseId,
+        start_cursor: nextCursor,
+        filter: {
+          and: [
+            {
+              property: "Status",
+              select: { equals: "processing" },
+            },
+            {
+              timestamp: "last_edited_time",
+              last_edited_time: { before: cutoffIso },
+            },
+          ],
+        },
+      });
+
+      for (const result of response.results) {
+        const pageId = this.extractPageId(result);
+        if (pageId) {
+          staleIdeaIds.push(pageId);
+        }
+      }
+
+      if (!response.has_more || !response.next_cursor) {
+        break;
+      }
+      nextCursor = response.next_cursor;
+    }
+
+    await Promise.all(
+      staleIdeaIds.map((ideaId) => this.updateIdeaStatus(ideaId, "new")),
+    );
+
+    return staleIdeaIds.length;
+  }
+
   async updateIdeaStatus(ideaId: string, status: Idea["status"]): Promise<void> {
     await this.notion.pages.update({
       page_id: ideaId,

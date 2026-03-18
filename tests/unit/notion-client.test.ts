@@ -423,6 +423,75 @@ describe("NotionClient", () => {
     });
   });
 
+  it("resets stale processing ideas back to new", async () => {
+    const nowSpy = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(new Date("2026-03-18T12:00:00.000Z").getTime());
+    const queryImpl = vi.fn().mockResolvedValue({
+      results: [
+        {
+          object: "page",
+          id: "idea-stale-1",
+        },
+        {
+          object: "page",
+          id: "idea-stale-2",
+        },
+      ],
+      has_more: false,
+      next_cursor: null,
+    });
+    const updatePageImpl = vi.fn().mockResolvedValue({
+      object: "page",
+    });
+    const notionClient = new NotionClient(
+      baseConfig,
+      createMockSdk({ queryImpl, updatePageImpl }),
+    );
+
+    await expect(notionClient.resetStaleProcessingIdeas(30)).resolves.toBe(2);
+
+    expect(queryImpl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data_source_id: "ideas-db",
+        filter: expect.objectContaining({
+          and: expect.arrayContaining([
+            expect.objectContaining({
+              property: "Status",
+              select: { equals: "processing" },
+            }),
+            expect.objectContaining({
+              timestamp: "last_edited_time",
+              last_edited_time: { before: "2026-03-18T11:30:00.000Z" },
+            }),
+          ]),
+        }),
+      }),
+    );
+    expect(updatePageImpl).toHaveBeenCalledWith({
+      page_id: "idea-stale-1",
+      properties: {
+        Status: {
+          select: {
+            name: "new",
+          },
+        },
+      },
+    });
+    expect(updatePageImpl).toHaveBeenCalledWith({
+      page_id: "idea-stale-2",
+      properties: {
+        Status: {
+          select: {
+            name: "new",
+          },
+        },
+      },
+    });
+
+    nowSpy.mockRestore();
+  });
+
   it("links an idea to a project", async () => {
     const updatePageImpl = vi.fn().mockResolvedValue({
       object: "page",

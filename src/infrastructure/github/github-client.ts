@@ -12,6 +12,13 @@ interface OctokitIssuesApi {
     body?: string;
     labels?: Array<string>;
   }): Promise<unknown>;
+  listForRepo(params: {
+    owner: string;
+    repo: string;
+    state?: "open" | "closed" | "all";
+    per_page?: number;
+    page?: number;
+  }): Promise<unknown>;
 }
 
 interface OctokitSdk {
@@ -50,6 +57,43 @@ export class GitHubClient implements GitHubRepository {
 
     return issueUrl;
   }
+
+  async findIssueUrlByTitle(title: string): Promise<string | null> {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      return null;
+    }
+
+    const maxPages = 5;
+    const perPage = 100;
+
+    for (let page = 1; page <= maxPages; page += 1) {
+      const response = await this.octokit.issues.listForRepo({
+        owner: this.config.owner,
+        repo: this.config.repo,
+        state: "all",
+        per_page: perPage,
+        page,
+      });
+
+      const issues = extractIssueList(response);
+      for (const issue of issues) {
+        if (issue.pullRequest) {
+          continue;
+        }
+
+        if (issue.title === trimmedTitle && issue.url) {
+          return issue.url;
+        }
+      }
+
+      if (issues.length < perPage) {
+        break;
+      }
+    }
+
+    return null;
+  }
 }
 
 const extractIssueUrl = (response: unknown): string | null => {
@@ -63,3 +107,23 @@ const extractIssueUrl = (response: unknown): string | null => {
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
+
+interface GitHubIssueListItem {
+  title: string;
+  url: string | null;
+  pullRequest: boolean;
+}
+
+const extractIssueList = (response: unknown): ReadonlyArray<GitHubIssueListItem> => {
+  if (!isObject(response) || !Array.isArray(response.data)) {
+    return [];
+  }
+
+  return response.data
+    .filter(isObject)
+    .map((item) => ({
+      title: typeof item.title === "string" ? item.title : "",
+      url: typeof item.html_url === "string" ? item.html_url : null,
+      pullRequest: isObject(item.pull_request),
+    }));
+};

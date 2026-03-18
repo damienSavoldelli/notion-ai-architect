@@ -5,5 +5,6 @@ export interface CreateIssueInput {
 }
 
 export interface GitHubRepository {
+  findIssueUrlByTitle?(title: string): Promise<string | null>;
   createIssue(input: CreateIssueInput): Promise<string>;
 }

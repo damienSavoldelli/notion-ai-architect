@@ -23,6 +23,7 @@ export interface CreateTasksInput {
 
 export interface NotionRepository {
   listNewIdeas(): Promise<ReadonlyArray<Idea>>;
+  resetStaleProcessingIdeas?(maxAgeMinutes: number): Promise<number>;
   updateIdeaStatus(ideaId: string, status: Idea["status"]): Promise<void>;
   linkIdeaToProject(ideaId: string, projectId: string): Promise<void>;
   updateTaskGithubIssue(taskId: string, issueUrl: string): Promise<void>;

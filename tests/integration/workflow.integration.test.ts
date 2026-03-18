@@ -116,7 +116,12 @@ describe("Workflow integration", () => {
         repo: "notion-ai-architect",
       },
       {
-        issues: { create: githubCreateIssue },
+        issues: {
+          create: githubCreateIssue,
+          listForRepo: vi.fn().mockResolvedValue({
+            data: [],
+          }),
+        },
       },
     );
 

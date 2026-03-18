@@ -9,13 +9,16 @@ const createMocks = () => {
   const updateIdeaStatus = vi.fn();
   const linkIdeaToProject = vi.fn();
   const updateTaskGithubIssue = vi.fn();
+  const resetStaleProcessingIdeas = vi.fn().mockResolvedValue(0);
   const createProject = vi.fn();
   const createTasks = vi.fn();
   const generateProjectFromIdea = vi.fn();
   const createIssue = vi.fn();
+  const findIssueUrlByTitle = vi.fn().mockResolvedValue(null);
 
   const notionRepository: NotionRepository = {
     listNewIdeas,
+    resetStaleProcessingIdeas,
     updateIdeaStatus,
     linkIdeaToProject,
     updateTaskGithubIssue,
@@ -28,6 +31,7 @@ const createMocks = () => {
   };
 
   const githubRepository: GitHubRepository = {
+    findIssueUrlByTitle,
     createIssue,
   };
 
@@ -41,8 +45,10 @@ const createMocks = () => {
     updateIdeaStatus,
     linkIdeaToProject,
     updateTaskGithubIssue,
+    resetStaleProcessingIdeas,
     generateProjectFromIdea,
     createIssue,
+    findIssueUrlByTitle,
   };
 };
 
@@ -56,6 +62,7 @@ describe("IdeaToProjectWorkflow", () => {
       updateIdeaStatus,
       linkIdeaToProject,
       updateTaskGithubIssue,
+      resetStaleProcessingIdeas,
     } = createMocks();
     listNewIdeas.mockResolvedValue([]);
 
@@ -77,6 +84,7 @@ describe("IdeaToProjectWorkflow", () => {
     expect(updateIdeaStatus).not.toHaveBeenCalled();
     expect(linkIdeaToProject).not.toHaveBeenCalled();
     expect(updateTaskGithubIssue).not.toHaveBeenCalled();
+    expect(resetStaleProcessingIdeas).toHaveBeenCalledWith(20);
   });
 
   it("orchestrates idea -> project -> tasks -> issues", async () => {
@@ -92,6 +100,7 @@ describe("IdeaToProjectWorkflow", () => {
       linkIdeaToProject,
       updateTaskGithubIssue,
       createIssue,
+      findIssueUrlByTitle,
     } = createMocks();
     listNewIdeas.mockResolvedValue([
       {
@@ -211,6 +220,9 @@ describe("IdeaToProjectWorkflow", () => {
       "task-1",
       "https://github.com/acme/repo/issues/1",
     );
+    expect(findIssueUrlByTitle).toHaveBeenCalledWith(
+      "[AI][AI CRM Assistant] Setup backend",
+    );
     expect(updateIdeaStatus).toHaveBeenNthCalledWith(1, "idea-1", "processing");
     expect(updateIdeaStatus).toHaveBeenNthCalledWith(2, "idea-1", "done");
   });
@@ -225,6 +237,7 @@ describe("IdeaToProjectWorkflow", () => {
       createProject,
       createTasks,
       createIssue,
+      findIssueUrlByTitle,
     } = createMocks();
 
     listNewIdeas.mockResolvedValue([
@@ -287,6 +300,9 @@ describe("IdeaToProjectWorkflow", () => {
 
     expect(generateProjectFromIdea).toHaveBeenCalledWith(
       "Build a freelancer invoice app\n\nCore problem\nFreelancers lose track of payment reminders.",
+    );
+    expect(findIssueUrlByTitle).toHaveBeenCalledWith(
+      "[AI][Invoice app] Task 1",
     );
   });
 
@@ -365,7 +381,7 @@ describe("IdeaToProjectWorkflow", () => {
     );
   });
 
-  it("sets idea status to error when processing fails", async () => {
+  it("sets idea status to error when processing fails and continues without crashing", async () => {
     const {
       notionRepository,
       aiArchitectService,
@@ -390,13 +406,187 @@ describe("IdeaToProjectWorkflow", () => {
       notionRepository,
       aiArchitectService,
       githubRepository,
+      { retryDelayMs: 0 },
     );
 
-    await expect(workflow.runOnce()).rejects.toThrow("AI failed");
+    await expect(workflow.runOnce()).resolves.toEqual({
+      processedIdeas: 0,
+      createdProjects: 0,
+      createdTasks: 0,
+      createdIssues: 0,
+    });
 
     expect(updateIdeaStatus).toHaveBeenNthCalledWith(1, "idea-1", "processing");
     expect(updateIdeaStatus).toHaveBeenNthCalledWith(2, "idea-1", "error");
     expect(linkIdeaToProject).not.toHaveBeenCalled();
     expect(updateTaskGithubIssue).not.toHaveBeenCalled();
+  });
+
+  it("retries transient AI failure and succeeds", async () => {
+    const {
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+      listNewIdeas,
+      generateProjectFromIdea,
+      createProject,
+      createTasks,
+      createIssue,
+      updateIdeaStatus,
+    } = createMocks();
+
+    listNewIdeas.mockResolvedValue([
+      {
+        id: "idea-1",
+        title: "Retry AI generation",
+        status: "new",
+        createdAt: new Date("2026-03-16T12:00:00.000Z"),
+      },
+    ]);
+    generateProjectFromIdea
+      .mockRejectedValueOnce(new Error("rate limited"))
+      .mockResolvedValueOnce({
+        product_overview: {
+          name: "Retry project",
+          description: "desc",
+          target_users: ["devs"],
+        },
+        architecture: {
+          frontend: "React",
+          backend: "Fastify",
+          database: "PostgreSQL",
+          infrastructure: "Docker",
+        },
+        tasks: [
+          {
+            title: "Task 1",
+            description: "Task",
+            priority: "medium",
+          },
+        ],
+        roadmap: [{ sprint: "Sprint 1", tasks: ["Task 1"] }],
+      });
+    createProject.mockResolvedValue({
+      id: "project-1",
+      ideaId: "idea-1",
+      name: "Retry project",
+      productPlan: "desc",
+      architecture: "{}",
+      status: "draft",
+    });
+    createTasks.mockResolvedValue([
+      {
+        id: "task-1",
+        projectId: "project-1",
+        title: "Task 1",
+        description: "Task",
+        status: "todo",
+        priority: "medium",
+      },
+    ]);
+    createIssue.mockResolvedValue("https://github.com/acme/repo/issues/1");
+
+    const workflow = new IdeaToProjectWorkflow(
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+      { retryDelayMs: 0 },
+    );
+
+    await expect(workflow.runOnce()).resolves.toEqual({
+      processedIdeas: 1,
+      createdProjects: 1,
+      createdTasks: 1,
+      createdIssues: 1,
+    });
+
+    expect(generateProjectFromIdea).toHaveBeenCalledTimes(2);
+    expect(updateIdeaStatus).toHaveBeenNthCalledWith(1, "idea-1", "processing");
+    expect(updateIdeaStatus).toHaveBeenNthCalledWith(2, "idea-1", "done");
+  });
+
+  it("reuses existing GitHub issue when title already exists", async () => {
+    const {
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+      listNewIdeas,
+      generateProjectFromIdea,
+      createProject,
+      createTasks,
+      createIssue,
+      findIssueUrlByTitle,
+      updateTaskGithubIssue,
+    } = createMocks();
+
+    listNewIdeas.mockResolvedValue([
+      {
+        id: "idea-1",
+        title: "Duplicate issue prevention",
+        status: "new",
+        createdAt: new Date("2026-03-16T12:00:00.000Z"),
+      },
+    ]);
+    generateProjectFromIdea.mockResolvedValue({
+      product_overview: {
+        name: "Duplicate-safe project",
+        description: "desc",
+        target_users: ["devs"],
+      },
+      architecture: {
+        frontend: "React",
+        backend: "Fastify",
+        database: "PostgreSQL",
+        infrastructure: "Docker",
+      },
+      tasks: [
+        {
+          title: "Task 1",
+          description: "Task",
+          priority: "medium",
+        },
+      ],
+      roadmap: [{ sprint: "Sprint 1", tasks: ["Task 1"] }],
+    });
+    createProject.mockResolvedValue({
+      id: "project-1",
+      ideaId: "idea-1",
+      name: "Duplicate-safe project",
+      productPlan: "desc",
+      architecture: "{}",
+      status: "draft",
+    });
+    createTasks.mockResolvedValue([
+      {
+        id: "task-1",
+        projectId: "project-1",
+        title: "Task 1",
+        description: "Task",
+        status: "todo",
+        priority: "medium",
+      },
+    ]);
+    findIssueUrlByTitle.mockResolvedValue(
+      "https://github.com/acme/repo/issues/42",
+    );
+
+    const workflow = new IdeaToProjectWorkflow(
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+    );
+
+    await expect(workflow.runOnce()).resolves.toEqual({
+      processedIdeas: 1,
+      createdProjects: 1,
+      createdTasks: 1,
+      createdIssues: 0,
+    });
+
+    expect(createIssue).not.toHaveBeenCalled();
+    expect(updateTaskGithubIssue).toHaveBeenCalledWith(
+      "task-1",
+      "https://github.com/acme/repo/issues/42",
+    );
   });
 });
