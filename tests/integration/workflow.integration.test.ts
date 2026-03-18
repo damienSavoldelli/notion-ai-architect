@@ -129,6 +129,22 @@ describe("Workflow integration", () => {
     expect(notionUpdatePage).toHaveBeenNthCalledWith(2, {
       page_id: "idea-1",
       properties: {
+        Project: {
+          relation: [{ id: "project-1" }],
+        },
+      },
+    });
+    expect(notionUpdatePage).toHaveBeenNthCalledWith(3, {
+      page_id: "task-1",
+      properties: {
+        "GitHub Issue": {
+          url: "https://github.com/acme/notion-ai-architect/issues/1",
+        },
+      },
+    });
+    expect(notionUpdatePage).toHaveBeenNthCalledWith(4, {
+      page_id: "idea-1",
+      properties: {
         Status: {
           select: {
             name: "done",

@@ -45,6 +45,7 @@ export class IdeaToProjectWorkflow {
           productPlan: generatedProject.product_overview.description,
           architecture: JSON.stringify(generatedProject.architecture, null, 2),
         });
+        await this.notionRepository.linkIdeaToProject(idea.id, project.id);
 
         const createdTasks = await this.notionRepository.createTasks({
           projectId: project.id,
@@ -67,7 +68,8 @@ export class IdeaToProjectWorkflow {
             acceptance_criteria: sourceTask?.acceptance_criteria,
           };
 
-          await this.createGithubIssue(issueTaskInput);
+          const issueUrl = await this.createGithubIssue(issueTaskInput);
+          await this.notionRepository.updateTaskGithubIssue(task.id, issueUrl);
           summary.createdIssues += 1;
         }
 

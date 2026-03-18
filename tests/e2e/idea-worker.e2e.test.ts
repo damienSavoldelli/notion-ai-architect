@@ -7,6 +7,8 @@ import { IdeaWorker } from "../../src/worker/idea-worker";
 
 class InMemoryNotionRepository implements NotionRepository {
   public statusTransitions: Array<{ ideaId: string; status: "new" | "processing" | "done" | "error" }> = [];
+  public ideaProjectLinks: Array<{ ideaId: string; projectId: string }> = [];
+  public taskIssueLinks: Array<{ taskId: string; issueUrl: string }> = [];
 
   async listNewIdeas() {
     return [
@@ -24,6 +26,14 @@ class InMemoryNotionRepository implements NotionRepository {
     status: "new" | "processing" | "done" | "error",
   ) {
     this.statusTransitions.push({ ideaId, status });
+  }
+
+  async linkIdeaToProject(ideaId: string, projectId: string) {
+    this.ideaProjectLinks.push({ ideaId, projectId });
+  }
+
+  async updateTaskGithubIssue(taskId: string, issueUrl: string) {
+    this.taskIssueLinks.push({ taskId, issueUrl });
   }
 
   async createProject(input: {
@@ -121,6 +131,15 @@ describe("Idea worker e2e", () => {
     expect(notionRepository.statusTransitions).toEqual([
       { ideaId: "idea-1", status: "processing" },
       { ideaId: "idea-1", status: "done" },
+    ]);
+    expect(notionRepository.ideaProjectLinks).toEqual([
+      { ideaId: "idea-1", projectId: "project-1" },
+    ]);
+    expect(notionRepository.taskIssueLinks).toEqual([
+      {
+        taskId: "task-1",
+        issueUrl: "https://github.com/acme/notion-ai-architect/issues/1",
+      },
     ]);
     expect(logSpy).toHaveBeenCalledWith(
       "Ideas processed=1, projects=1, tasks=1, issues=1",

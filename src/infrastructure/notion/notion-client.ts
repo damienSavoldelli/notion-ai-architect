@@ -68,6 +68,28 @@ export class NotionClient implements NotionRepository {
     });
   }
 
+  async linkIdeaToProject(ideaId: string, projectId: string): Promise<void> {
+    await this.notion.pages.update({
+      page_id: ideaId,
+      properties: {
+        Project: {
+          relation: [{ id: projectId }],
+        },
+      },
+    });
+  }
+
+  async updateTaskGithubIssue(taskId: string, issueUrl: string): Promise<void> {
+    await this.notion.pages.update({
+      page_id: taskId,
+      properties: {
+        "GitHub Issue": {
+          url: issueUrl,
+        },
+      },
+    });
+  }
+
   async createProject(input: CreateProjectInput): Promise<Project> {
     const response = await this.notion.pages.create({
       parent: {

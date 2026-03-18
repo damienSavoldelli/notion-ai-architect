@@ -7,6 +7,8 @@ import type { NotionRepository } from "../../src/application/ports/notion-reposi
 const createMocks = () => {
   const listNewIdeas = vi.fn();
   const updateIdeaStatus = vi.fn();
+  const linkIdeaToProject = vi.fn();
+  const updateTaskGithubIssue = vi.fn();
   const createProject = vi.fn();
   const createTasks = vi.fn();
   const generateProjectFromIdea = vi.fn();
@@ -15,6 +17,8 @@ const createMocks = () => {
   const notionRepository: NotionRepository = {
     listNewIdeas,
     updateIdeaStatus,
+    linkIdeaToProject,
+    updateTaskGithubIssue,
     createProject,
     createTasks,
   };
@@ -35,6 +39,8 @@ const createMocks = () => {
     createProject,
     createTasks,
     updateIdeaStatus,
+    linkIdeaToProject,
+    updateTaskGithubIssue,
     generateProjectFromIdea,
     createIssue,
   };
@@ -48,6 +54,8 @@ describe("IdeaToProjectWorkflow", () => {
       githubRepository,
       listNewIdeas,
       updateIdeaStatus,
+      linkIdeaToProject,
+      updateTaskGithubIssue,
     } = createMocks();
     listNewIdeas.mockResolvedValue([]);
 
@@ -67,6 +75,8 @@ describe("IdeaToProjectWorkflow", () => {
     expect(aiArchitectService.generateProjectFromIdea).not.toHaveBeenCalled();
     expect(githubRepository.createIssue).not.toHaveBeenCalled();
     expect(updateIdeaStatus).not.toHaveBeenCalled();
+    expect(linkIdeaToProject).not.toHaveBeenCalled();
+    expect(updateTaskGithubIssue).not.toHaveBeenCalled();
   });
 
   it("orchestrates idea -> project -> tasks -> issues", async () => {
@@ -79,6 +89,8 @@ describe("IdeaToProjectWorkflow", () => {
       createProject,
       createTasks,
       updateIdeaStatus,
+      linkIdeaToProject,
+      updateTaskGithubIssue,
       createIssue,
     } = createMocks();
     listNewIdeas.mockResolvedValue([
@@ -174,6 +186,7 @@ describe("IdeaToProjectWorkflow", () => {
         },
       ],
     });
+    expect(linkIdeaToProject).toHaveBeenCalledWith("idea-1", "project-1");
     expect(githubRepository.createIssue).toHaveBeenCalledWith({
       title: "[AI] Setup backend",
       body: `## 🧩 Task Overview
@@ -205,6 +218,10 @@ Implement this feature to improve the product functionality.
 ---`,
       labels: ["AI", "high", "feature", "backend", "auth"],
     });
+    expect(updateTaskGithubIssue).toHaveBeenCalledWith(
+      "task-1",
+      "https://github.com/acme/repo/issues/1",
+    );
     expect(updateIdeaStatus).toHaveBeenNthCalledWith(1, "idea-1", "processing");
     expect(updateIdeaStatus).toHaveBeenNthCalledWith(2, "idea-1", "done");
   });
@@ -217,6 +234,8 @@ Implement this feature to improve the product functionality.
       listNewIdeas,
       generateProjectFromIdea,
       updateIdeaStatus,
+      linkIdeaToProject,
+      updateTaskGithubIssue,
     } = createMocks();
     listNewIdeas.mockResolvedValue([
       {
@@ -238,5 +257,7 @@ Implement this feature to improve the product functionality.
 
     expect(updateIdeaStatus).toHaveBeenNthCalledWith(1, "idea-1", "processing");
     expect(updateIdeaStatus).toHaveBeenNthCalledWith(2, "idea-1", "error");
+    expect(linkIdeaToProject).not.toHaveBeenCalled();
+    expect(updateTaskGithubIssue).not.toHaveBeenCalled();
   });
 });

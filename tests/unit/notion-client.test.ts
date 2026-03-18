@@ -160,6 +160,57 @@ describe("NotionClient", () => {
     });
   });
 
+  it("links an idea to a project", async () => {
+    const updatePageImpl = vi.fn().mockResolvedValue({
+      object: "page",
+      id: "idea-1",
+    });
+    const notionClient = new NotionClient(
+      baseConfig,
+      createMockSdk({ updatePageImpl }),
+    );
+
+    await expect(
+      notionClient.linkIdeaToProject("idea-1", "project-1"),
+    ).resolves.toBeUndefined();
+
+    expect(updatePageImpl).toHaveBeenCalledWith({
+      page_id: "idea-1",
+      properties: {
+        Project: {
+          relation: [{ id: "project-1" }],
+        },
+      },
+    });
+  });
+
+  it("updates task with GitHub issue URL", async () => {
+    const updatePageImpl = vi.fn().mockResolvedValue({
+      object: "page",
+      id: "task-1",
+    });
+    const notionClient = new NotionClient(
+      baseConfig,
+      createMockSdk({ updatePageImpl }),
+    );
+
+    await expect(
+      notionClient.updateTaskGithubIssue(
+        "task-1",
+        "https://github.com/acme/notion-ai-architect/issues/42",
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(updatePageImpl).toHaveBeenCalledWith({
+      page_id: "task-1",
+      properties: {
+        "GitHub Issue": {
+          url: "https://github.com/acme/notion-ai-architect/issues/42",
+        },
+      },
+    });
+  });
+
   it("creates a project page and returns the mapped Project entity", async () => {
     const createPageImpl = vi.fn().mockResolvedValue({
       object: "page",
