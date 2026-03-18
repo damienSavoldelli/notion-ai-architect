@@ -39,7 +39,9 @@ Deliver a production-ready implementation of this feature with proper validation
 
 ## 🛠 Technical Notes
 
-Implement with validation, error handling, and integration tests.
+- Define implementation scope, interfaces, and data contracts for "Implement JWT authentication system".
+- Implement core logic with validation and error handling.
+- Add automated tests for success path, validation failures, and edge cases.
 
 ---
 
@@ -84,6 +86,9 @@ Implement with validation, error handling, and integration tests.
     expect(mapped.title).toBe("[AI][General] Untitled task");
     expect(mapped.body).toContain("## 📦 Project");
     expect(mapped.body).toContain("General");
+    expect(mapped.body).toContain(
+      '- Define implementation scope, interfaces, and data contracts for "Untitled task".',
+    );
     expect(mapped.body).toContain("- [ ] Implementation is completed and reviewed.");
     expect(mapped.body).toContain("- [ ] Tests are added or updated.");
     expect(mapped.labels).toEqual([
@@ -97,5 +102,20 @@ Implement with validation, error handling, and integration tests.
       "infra",
     ]);
     expect(mapped.labels.some((label) => label === "undefined")).toBe(false);
+  });
+
+  it("replaces vague titles using task description context", () => {
+    const mapped = mapTaskToGithubIssue({
+      projectName: "Recruitment AI",
+      title: "Implement feature",
+      description:
+        "Build candidate scoring pipeline with weighted criteria and persistence.",
+      priority: "high",
+      type: "feature",
+    });
+
+    expect(mapped.title).toBe(
+      "[AI][Recruitment AI] Build candidate scoring pipeline with weighted criteria and persistence",
+    );
   });
 });

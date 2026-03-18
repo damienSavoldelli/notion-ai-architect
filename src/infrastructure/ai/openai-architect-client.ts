@@ -47,11 +47,20 @@ SCHEMA:
 RULES:
 - Tasks must be specific and domain-aware
 - Each task must represent one realistic engineering unit of work
+- Task titles must be explicit and implementation-focused
 - Avoid generic statements like "improve system"
-- Acceptance criteria must be testable
+- Avoid vague titles like "implement feature"
+- Acceptance criteria must be precise and testable (use clear conditions)
 - Include relevant technical implementation details
+- Technical notes must include concrete implementation details
+- technical_notes must contain at least 2-3 concrete implementation steps
+- Each task must be understandable by a developer without additional context
 - Include backend and frontend tasks when relevant
-- Return 6 to 10 tasks`;
+- Return 6 to 10 tasks
+
+EXAMPLES:
+Bad example title: "Implement task assignment feature"
+Good example title: "Implement action item assignment to users with persistence in database"`;
 
 interface OpenAiResponsesApi {
   create(params: {

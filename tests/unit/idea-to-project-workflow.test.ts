@@ -211,7 +211,9 @@ Deliver a production-ready implementation of this feature with proper validation
 
 ## 🛠 Technical Notes
 
-Implement with validation, error handling, and integration tests.
+- Define implementation scope, interfaces, and data contracts for "Setup backend".
+- Implement core logic with validation and error handling.
+- Add automated tests for success path, validation failures, and edge cases.
 
 ---
 
