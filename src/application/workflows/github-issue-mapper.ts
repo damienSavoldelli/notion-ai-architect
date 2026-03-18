@@ -9,6 +9,7 @@ export interface GithubIssueTaskInput {
   type?: GithubIssueType;
   labels?: ReadonlyArray<string>;
   acceptance_criteria?: ReadonlyArray<string>;
+  technical_notes?: string;
 }
 
 export interface GithubIssuePayload {
@@ -31,9 +32,12 @@ export const mapTaskToGithubIssue = (
   const priority = normalizePriority(task.priority);
   const type = normalizeType(task.type);
   const projectLabel = `project:${slugifyProjectName(projectName)}`;
+  const priorityLabel = `priority:${priority}`;
+  const technicalNotes = normalizeTechnicalNotes(task.technical_notes);
   const acceptanceCriteria = normalizeAcceptanceCriteria(
     task.acceptance_criteria,
   );
+  const domainLabels = inferDomainLabels(task);
 
   const body = `## 📦 Project
 
@@ -49,7 +53,13 @@ ${description}
 
 ## 🎯 Objective
 
-Implement this feature to improve the product functionality.
+Deliver a production-ready implementation of this feature with proper validation, error handling, and integration into the system.
+
+---
+
+## 🛠 Technical Notes
+
+${technicalNotes}
 
 ---
 
@@ -61,9 +71,9 @@ ${acceptanceCriteria.map((criteria) => `- [ ] ${criteria}`).join("\n")}
 
 ## 🏷 Metadata
 
-- Priority: ${priority}
-- Type: ${type}
-- Source: AI-generated from Notion
+- **Priority:** ${priority}
+- **Type:** ${type}
+- **Source:** AI-generated from Notion
 
 ---`;
 
@@ -71,7 +81,9 @@ ${acceptanceCriteria.map((criteria) => `- [ ] ${criteria}`).join("\n")}
     "AI",
     priority,
     type,
+    priorityLabel,
     projectLabel,
+    ...domainLabels,
     ...(task.labels ?? []).map((label) => normalizeLabel(label)),
   ]);
 
@@ -124,6 +136,13 @@ const normalizeAcceptanceCriteria = (
   return DEFAULT_ACCEPTANCE_CRITERIA;
 };
 
+const normalizeTechnicalNotes = (value?: string): string => {
+  const clean = value?.replace(/\r\n/g, "\n").trim();
+  return clean && clean.length > 0
+    ? clean
+    : "Implement with validation, error handling, and integration tests.";
+};
+
 const dedupeLabels = (labels: ReadonlyArray<string>): ReadonlyArray<string> => {
   const unique = new Set<string>();
   for (const label of labels) {
@@ -147,4 +166,32 @@ const slugifyProjectName = (value: string): string => {
   const fallback = normalized.length > 0 ? normalized : "general";
   const maxSlugLength = 42;
   return fallback.slice(0, maxSlugLength).replace(/-+$/g, "") || "general";
+};
+
+const inferDomainLabels = (task: GithubIssueTaskInput): ReadonlyArray<string> => {
+  const corpus = [
+    task.title,
+    task.description,
+    task.technical_notes ?? "",
+    ...(task.labels ?? []),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  const rules: ReadonlyArray<{ label: string; keywords: ReadonlyArray<string> }> = [
+    { label: "domain:auth", keywords: ["auth", "jwt", "login", "oauth"] },
+    { label: "domain:payments", keywords: ["payment", "invoice", "billing", "stripe"] },
+    {
+      label: "domain:notifications",
+      keywords: ["notification", "reminder", "email", "sms", "webhook"],
+    },
+    { label: "domain:ui", keywords: ["ui", "ux", "frontend", "react", "design"] },
+    { label: "domain:api", keywords: ["api", "endpoint", "backend", "fastify"] },
+    { label: "domain:data", keywords: ["database", "sql", "schema", "migration"] },
+    { label: "domain:infra", keywords: ["deploy", "docker", "infra", "ci", "aws"] },
+  ];
+
+  return rules
+    .filter((rule) => rule.keywords.some((keyword) => corpus.includes(keyword)))
+    .map((rule) => rule.label);
 };

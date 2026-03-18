@@ -205,7 +205,13 @@ Initialize API foundation.
 
 ## 🎯 Objective
 
-Implement this feature to improve the product functionality.
+Deliver a production-ready implementation of this feature with proper validation, error handling, and integration into the system.
+
+---
+
+## 🛠 Technical Notes
+
+Implement with validation, error handling, and integration tests.
 
 ---
 
@@ -219,16 +225,19 @@ Implement this feature to improve the product functionality.
 
 ## 🏷 Metadata
 
-- Priority: high
-- Type: feature
-- Source: AI-generated from Notion
+- **Priority:** high
+- **Type:** feature
+- **Source:** AI-generated from Notion
 
 ---`,
       labels: [
         "AI",
         "high",
         "feature",
+        "priority:high",
         "project:ai-crm-assistant",
+        "domain:auth",
+        "domain:api",
         "backend",
         "auth",
       ],

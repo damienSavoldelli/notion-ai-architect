@@ -74,6 +74,7 @@ export class IdeaToProjectWorkflow {
             type: sourceTask?.type,
             labels: sourceTask?.labels,
             acceptance_criteria: sourceTask?.acceptance_criteria,
+            technical_notes: sourceTask?.technical_notes,
           };
 
           const issueUrl = await this.createGithubIssue(issueTaskInput);

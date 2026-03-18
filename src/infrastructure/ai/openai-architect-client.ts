@@ -3,20 +3,55 @@ import type { AiArchitectService } from "../../application/ports/ai-architect-se
 import type { GeneratedProject } from "../../domain/entities/generated-project";
 import { safeParseGeneratedProject } from "./generated-project-schema";
 
-const SYSTEM_PROMPT = `You are a senior software architect and AI engineer.
+const SYSTEM_PROMPT = `You are a senior software architect and product engineer.
 
-Transform the following project idea into a structured JSON object.
+Your goal is to transform a product idea into a production-ready technical plan.
 
-Return only valid JSON.
+You must think like a startup team preparing to build and ship this product.
 
-Schema:
+Return ONLY valid JSON.
+
+The output must be precise, actionable, and realistic.
+Avoid vague or generic statements.
+
+SCHEMA:
 
 {
- "product_overview": {},
- "architecture": {},
- "tasks": [],
- "roadmap": []
-}`;
+  "product_overview": {
+    "name": "",
+    "description": "",
+    "target_users": [],
+    "core_features": []
+  },
+  "architecture": {
+    "frontend": "",
+    "backend": "",
+    "database": "",
+    "infrastructure": "",
+    "external_services": []
+  },
+  "tasks": [
+    {
+      "title": "",
+      "description": "",
+      "type": "feature | chore | bug",
+      "priority": "low | medium | high",
+      "labels": [],
+      "acceptance_criteria": [],
+      "technical_notes": ""
+    }
+  ],
+  "roadmap": []
+}
+
+RULES:
+- Tasks must be specific and domain-aware
+- Each task must represent one realistic engineering unit of work
+- Avoid generic statements like "improve system"
+- Acceptance criteria must be testable
+- Include relevant technical implementation details
+- Include backend and frontend tasks when relevant
+- Return 6 to 10 tasks`;
 
 interface OpenAiResponsesApi {
   create(params: {
@@ -239,7 +274,7 @@ const normalizeGeneratedProjectCandidate = (
   const tasksRoot = pickArray(root, ["tasks", "todo", "items"]);
   const roadmapRoot = pickArray(root, ["roadmap", "sprints", "phases"]);
 
-  const tasks = normalizeTasks(tasksRoot, idea);
+  const tasks = ensureMinimumTasks(normalizeTasks(tasksRoot, idea), idea);
   const roadmap = normalizeRoadmap(roadmapRoot, tasks);
 
   return {
@@ -256,6 +291,12 @@ const normalizeGeneratedProjectCandidate = (
           "targetUsers",
           "users",
         ]) ?? ["builders"],
+      core_features:
+        pickStringArray(productOverviewRoot, [
+          "core_features",
+          "coreFeatures",
+          "features",
+        ]) ?? tasks.slice(0, 4).map((task) => task.title),
     },
     architecture: {
       frontend:
@@ -270,6 +311,13 @@ const normalizeGeneratedProjectCandidate = (
       infrastructure:
         pickString(architectureRoot, ["infrastructure", "infra", "deployment"]) ??
         "Bun worker + OpenAI API + GitHub API",
+      external_services:
+        pickStringArray(architectureRoot, [
+          "external_services",
+          "externalServices",
+          "services",
+          "integrations",
+        ]) ?? ["OpenAI API", "Notion API", "GitHub API"],
     },
     tasks,
     roadmap,
@@ -286,6 +334,35 @@ const normalizeTasks = (tasksValue: unknown[], idea: string): GeneratedProject["
   }
 
   return buildFallbackGeneratedProject(idea).tasks;
+};
+
+const ensureMinimumTasks = (
+  tasks: GeneratedProject["tasks"],
+  idea: string,
+): GeneratedProject["tasks"] => {
+  const minimumTasks = 6;
+  if (tasks.length >= minimumTasks) {
+    return tasks;
+  }
+
+  const fallbackTasks = buildFallbackGeneratedProject(idea).tasks;
+  const merged: GeneratedProject["tasks"][number][] = [...tasks];
+
+  for (const task of fallbackTasks) {
+    if (merged.length >= minimumTasks) {
+      break;
+    }
+
+    const alreadyPresent = merged.some(
+      (existingTask) =>
+        existingTask.title.toLowerCase() === task.title.toLowerCase(),
+    );
+    if (!alreadyPresent) {
+      merged.push(task);
+    }
+  }
+
+  return merged;
 };
 
 const normalizeTask = (
@@ -314,6 +391,14 @@ const normalizeTask = (
       "acceptanceCriteria",
       "criteria",
     ]),
+    technical_notes:
+      pickString(task, [
+        "technical_notes",
+        "technicalNotes",
+        "implementation_notes",
+        "notes",
+      ]) ??
+      `Implement ${title} with validation, error handling, and integration tests.`,
   };
 };
 
@@ -476,6 +561,8 @@ const buildFallbackGeneratedProject = (idea: string): GeneratedProject => {
         "MVP scope is clearly documented.",
         "User goals and success criteria are defined.",
       ],
+      technical_notes:
+        "Capture requirements as user stories and non-functional constraints.",
     },
     {
       title: "Implement core backend workflow",
@@ -488,6 +575,50 @@ const buildFallbackGeneratedProject = (idea: string): GeneratedProject => {
         "Workflow runs end-to-end without manual intervention.",
         "Generated outputs are stored correctly in Notion and GitHub.",
       ],
+      technical_notes:
+        "Use a deterministic orchestration flow with explicit state transitions.",
+    },
+    {
+      title: "Build API endpoints for workflow control",
+      description:
+        "Expose health and trigger endpoints to run worker cycles and validate runtime readiness.",
+      priority: "medium",
+      type: "feature",
+      labels: ["api", "backend"],
+      acceptance_criteria: [
+        "Health endpoint returns readiness status.",
+        "Manual run endpoint triggers one complete workflow cycle.",
+      ],
+      technical_notes:
+        "Add request validation and structured logs for each endpoint.",
+    },
+    {
+      title: "Implement Notion data mapping safeguards",
+      description:
+        "Ensure Notion page/property mapping remains robust against schema drifts.",
+      priority: "medium",
+      type: "chore",
+      labels: ["notion", "integration"],
+      acceptance_criteria: [
+        "Unknown optional properties do not break project/task creation.",
+        "Mandatory fields are validated before write operations.",
+      ],
+      technical_notes:
+        "Introduce property fallback resolution and consistent error messages.",
+    },
+    {
+      title: "Harden GitHub issue generation quality",
+      description:
+        "Generate project-aware, structured issues with labels and acceptance criteria.",
+      priority: "medium",
+      type: "feature",
+      labels: ["github", "automation"],
+      acceptance_criteria: [
+        "Issue titles include AI and project prefixes.",
+        "Labels include type, priority, project, and inferred domain tags.",
+      ],
+      technical_notes:
+        "Use a pure mapper to keep formatting deterministic and testable.",
     },
     {
       title: "Validate end-to-end execution",
@@ -500,6 +631,8 @@ const buildFallbackGeneratedProject = (idea: string): GeneratedProject => {
         "Integration tests pass against mocked providers.",
         "One full e2e run succeeds with real configuration.",
       ],
+      technical_notes:
+        "Cover success, retry, and failure transitions across Notion/OpenAI/GitHub.",
     },
   ];
 
@@ -508,12 +641,19 @@ const buildFallbackGeneratedProject = (idea: string): GeneratedProject => {
       name: projectName,
       description: `Automatically generated fallback project structure for idea: ${idea}.`,
       target_users: ["developers", "product teams"],
+      core_features: [
+        "Idea ingestion from Notion",
+        "AI project plan generation",
+        "Task decomposition",
+        "GitHub issue automation",
+      ],
     },
     architecture: {
       frontend: "Optional web dashboard for project tracking",
       backend: "Fastify API and worker orchestration",
       database: "Notion databases for ideas/projects/tasks",
       infrastructure: "Bun runtime with OpenAI and GitHub API integrations",
+      external_services: ["OpenAI API", "Notion API", "GitHub API"],
     },
     tasks,
     roadmap: [
@@ -533,11 +673,16 @@ const GENERATED_PROJECT_RESPONSE_SCHEMA: Record<string, unknown> = {
     product_overview: {
       type: "object",
       additionalProperties: false,
-      required: ["name", "description", "target_users"],
+      required: ["name", "description", "target_users", "core_features"],
       properties: {
         name: { type: "string", minLength: 1 },
         description: { type: "string", minLength: 1 },
         target_users: {
+          type: "array",
+          minItems: 1,
+          items: { type: "string", minLength: 1 },
+        },
+        core_features: {
           type: "array",
           minItems: 1,
           items: { type: "string", minLength: 1 },
@@ -547,12 +692,23 @@ const GENERATED_PROJECT_RESPONSE_SCHEMA: Record<string, unknown> = {
     architecture: {
       type: "object",
       additionalProperties: false,
-      required: ["frontend", "backend", "database", "infrastructure"],
+      required: [
+        "frontend",
+        "backend",
+        "database",
+        "infrastructure",
+        "external_services",
+      ],
       properties: {
         frontend: { type: "string", minLength: 1 },
         backend: { type: "string", minLength: 1 },
         database: { type: "string", minLength: 1 },
         infrastructure: { type: "string", minLength: 1 },
+        external_services: {
+          type: "array",
+          minItems: 1,
+          items: { type: "string", minLength: 1 },
+        },
       },
     },
     tasks: {
@@ -568,6 +724,7 @@ const GENERATED_PROJECT_RESPONSE_SCHEMA: Record<string, unknown> = {
           "type",
           "labels",
           "acceptance_criteria",
+          "technical_notes",
         ],
         properties: {
           title: { type: "string", minLength: 1 },
@@ -582,6 +739,7 @@ const GENERATED_PROJECT_RESPONSE_SCHEMA: Record<string, unknown> = {
             type: "array",
             items: { type: "string", minLength: 1 },
           },
+          technical_notes: { type: "string", minLength: 1 },
         },
       },
     },

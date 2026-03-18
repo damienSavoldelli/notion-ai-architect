@@ -27,10 +27,14 @@ describe("Workflow integration", () => {
       has_more: false,
       next_cursor: null,
     });
-    const notionCreatePage = vi
-      .fn()
-      .mockResolvedValueOnce({ object: "page", id: "project-1" })
-      .mockResolvedValueOnce({ object: "page", id: "task-1" });
+    let createPageCall = 0;
+    const notionCreatePage = vi.fn().mockImplementation(async () => {
+      createPageCall += 1;
+      return {
+        object: "page",
+        id: createPageCall === 1 ? "project-1" : `task-${createPageCall - 1}`,
+      };
+    });
     const notionUpdatePage = vi.fn().mockResolvedValue({
       object: "page",
       id: "idea-1",
@@ -87,8 +91,14 @@ describe("Workflow integration", () => {
       },
     );
 
-    const githubCreateIssue = vi.fn().mockResolvedValue({
-      data: { html_url: "https://github.com/acme/notion-ai-architect/issues/1" },
+    let issueNumber = 0;
+    const githubCreateIssue = vi.fn().mockImplementation(async () => {
+      issueNumber += 1;
+      return {
+        data: {
+          html_url: `https://github.com/acme/notion-ai-architect/issues/${issueNumber}`,
+        },
+      };
     });
     const githubRepository = new GitHubClient(
       {
@@ -110,13 +120,13 @@ describe("Workflow integration", () => {
     await expect(workflow.runOnce()).resolves.toEqual({
       processedIdeas: 1,
       createdProjects: 1,
-      createdTasks: 1,
-      createdIssues: 1,
+      createdTasks: 6,
+      createdIssues: 6,
     });
 
     expect(aiCreateResponse).toHaveBeenCalledTimes(1);
-    expect(githubCreateIssue).toHaveBeenCalledTimes(1);
-    expect(notionUpdatePage).toHaveBeenNthCalledWith(1, {
+    expect(githubCreateIssue).toHaveBeenCalledTimes(6);
+    expect(notionUpdatePage).toHaveBeenCalledWith({
       page_id: "idea-1",
       properties: {
         Status: {
@@ -126,7 +136,7 @@ describe("Workflow integration", () => {
         },
       },
     });
-    expect(notionUpdatePage).toHaveBeenNthCalledWith(2, {
+    expect(notionUpdatePage).toHaveBeenCalledWith({
       page_id: "idea-1",
       properties: {
         Project: {
@@ -134,7 +144,7 @@ describe("Workflow integration", () => {
         },
       },
     });
-    expect(notionUpdatePage).toHaveBeenNthCalledWith(3, {
+    expect(notionUpdatePage).toHaveBeenCalledWith({
       page_id: "task-1",
       properties: {
         "GitHub Issue": {
@@ -142,7 +152,7 @@ describe("Workflow integration", () => {
         },
       },
     });
-    expect(notionUpdatePage).toHaveBeenNthCalledWith(4, {
+    expect(notionUpdatePage).toHaveBeenCalledWith({
       page_id: "idea-1",
       properties: {
         Status: {
@@ -170,7 +180,13 @@ Create invoice core entities.
 
 ## 🎯 Objective
 
-Implement this feature to improve the product functionality.
+Deliver a production-ready implementation of this feature with proper validation, error handling, and integration into the system.
+
+---
+
+## 🛠 Technical Notes
+
+Implement Setup invoice domain with validation, error handling, and integration tests.
 
 ---
 
@@ -183,16 +199,19 @@ Implement this feature to improve the product functionality.
 
 ## 🏷 Metadata
 
-- Priority: high
-- Type: feature
-- Source: AI-generated from Notion
+- **Priority:** high
+- **Type:** feature
+- **Source:** AI-generated from Notion
 
 ---`,
       labels: [
         "AI",
         "high",
         "feature",
+        "priority:high",
         "project:ai-invoicing-assistant",
+        "domain:payments",
+        "domain:api",
         "backend",
         "billing",
       ],

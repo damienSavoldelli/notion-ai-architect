@@ -47,10 +47,14 @@ describe("OpenAiArchitectClient", () => {
 
     await expect(
       client.generateProjectFromIdea("Build an AI CRM assistant"),
-    ).resolves.toMatchObject({
-      product_overview: { name: "AI CRM Assistant" },
-      tasks: [{ priority: "high" }],
-    });
+    ).resolves.toEqual(
+      expect.objectContaining({
+        product_overview: expect.objectContaining({ name: "AI CRM Assistant" }),
+        tasks: expect.arrayContaining([
+          expect.objectContaining({ priority: "high" }),
+        ]),
+      }),
+    );
 
     expect(createImpl).toHaveBeenCalledTimes(1);
     expect(createImpl).toHaveBeenCalledWith(
@@ -91,9 +95,11 @@ describe("OpenAiArchitectClient", () => {
       });
     const client = new OpenAiArchitectClient(baseConfig, createMockSdk(createImpl));
 
-    await expect(client.generateProjectFromIdea("Build something")).resolves.toMatchObject({
-      product_overview: { name: "Recovered project" },
-    });
+    await expect(client.generateProjectFromIdea("Build something")).resolves.toEqual(
+      expect.objectContaining({
+        product_overview: expect.objectContaining({ name: "Recovered project" }),
+      }),
+    );
     expect(createImpl).toHaveBeenCalledTimes(2);
   });
 
@@ -103,11 +109,13 @@ describe("OpenAiArchitectClient", () => {
       createMockSdk(vi.fn().mockResolvedValue({ output_text: "not-json" })),
     );
 
-    await expect(client.generateProjectFromIdea("Build something")).resolves.toMatchObject({
-      product_overview: {
-        name: "Build something",
-      },
-    });
+    await expect(client.generateProjectFromIdea("Build something")).resolves.toEqual(
+      expect.objectContaining({
+        product_overview: expect.objectContaining({
+          name: "Build something",
+        }),
+      }),
+    );
   });
 
   it("normalizes OpenAI text when schema is close but not strictly valid", async () => {
@@ -140,18 +148,20 @@ describe("OpenAiArchitectClient", () => {
       ),
     );
 
-    await expect(client.generateProjectFromIdea("Build something")).resolves.toMatchObject({
-      product_overview: {
-        name: "Invalid",
-      },
-      tasks: [
-        {
-          title: "Task",
-          priority: "high",
-          type: "feature",
-        },
-      ],
-    });
+    await expect(client.generateProjectFromIdea("Build something")).resolves.toEqual(
+      expect.objectContaining({
+        product_overview: expect.objectContaining({
+          name: "Invalid",
+        }),
+        tasks: expect.arrayContaining([
+          expect.objectContaining({
+            title: "Task",
+            priority: "high",
+            type: "feature",
+          }),
+        ]),
+      }),
+    );
   });
 
   it("throws when OpenAI API request fails", async () => {

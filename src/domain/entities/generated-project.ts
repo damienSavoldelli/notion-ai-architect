@@ -4,6 +4,7 @@ export interface ProductOverview {
   name: string;
   description: string;
   target_users: ReadonlyArray<string>;
+  core_features?: ReadonlyArray<string>;
 }
 
 export interface TechnicalArchitecture {
@@ -11,6 +12,7 @@ export interface TechnicalArchitecture {
   backend: string;
   database: string;
   infrastructure: string;
+  external_services?: ReadonlyArray<string>;
 }
 
 export interface GeneratedTask {
@@ -20,6 +22,7 @@ export interface GeneratedTask {
   type?: "feature" | "bug" | "chore";
   labels?: ReadonlyArray<string>;
   acceptance_criteria?: ReadonlyArray<string>;
+  technical_notes?: string;
 }
 
 export interface RoadmapSprint {

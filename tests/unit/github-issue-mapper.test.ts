@@ -33,7 +33,13 @@ Create secure login system
 
 ## 🎯 Objective
 
-Implement this feature to improve the product functionality.
+Deliver a production-ready implementation of this feature with proper validation, error handling, and integration into the system.
+
+---
+
+## 🛠 Technical Notes
+
+Implement with validation, error handling, and integration tests.
 
 ---
 
@@ -47,16 +53,19 @@ Implement this feature to improve the product functionality.
 
 ## 🏷 Metadata
 
-- Priority: high
-- Type: feature
-- Source: AI-generated from Notion
+- **Priority:** high
+- **Type:** feature
+- **Source:** AI-generated from Notion
 
 ---`,
       labels: [
         "AI",
         "high",
         "feature",
+        "priority:high",
         "project:freelance-invoice-assistant",
+        "domain:auth",
+        "domain:api",
         "backend",
         "auth",
       ],
@@ -73,13 +82,17 @@ Implement this feature to improve the product functionality.
     });
 
     expect(mapped.title).toBe("[AI][General] Untitled task");
+    expect(mapped.body).toContain("## 📦 Project");
+    expect(mapped.body).toContain("General");
     expect(mapped.body).toContain("- [ ] Implementation is completed and reviewed.");
     expect(mapped.body).toContain("- [ ] Tests are added or updated.");
     expect(mapped.labels).toEqual([
       "AI",
       "medium",
       "chore",
+      "priority:medium",
       "project:general",
+      "domain:infra",
       "misc",
       "infra",
     ]);
