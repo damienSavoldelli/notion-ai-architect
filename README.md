@@ -118,3 +118,7 @@ The roadmap is tracked with git tags:
 - `v0.11.0` Phase 11 - demo hardening (worker recovery, retry, timeout, idempotence light)
 - `v0.11.1` Phase 11 patch - CI quality gate and coverage enforcement
 - `v1.0.0` Phase 12 - contest finalization and release milestone
+
+Detailed version history:
+
+- See [CHANGELOG.md](./CHANGELOG.md)
