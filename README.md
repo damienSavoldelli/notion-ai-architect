@@ -88,6 +88,18 @@ Operational guide:
 - See [RUNBOOK.md](./RUNBOOK.md)
 - See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)
 
+## Phase 12 (Contest Finalization)
+
+Finalization scope for the live demo and release readiness:
+
+- `.env` and setup docs aligned with demo-pinned OpenAI model
+- 2-minute live demo script with fallback plan
+- CI on `push` / `pull_request` with:
+  - Typecheck
+  - Tests
+  - Coverage gate (`lines > 90`)
+- Final documentation alignment across README / RUNBOOK / DEMO_SCRIPT
+
 ## Releases
 
 The roadmap is tracked with git tags:
@@ -104,3 +116,5 @@ The roadmap is tracked with git tags:
 - `v0.10.0` Phase 10 - professional GitHub issue generation
 - `v0.10.1` Phase 10 patch - formatting/context improvements
 - `v0.11.0` Phase 11 - demo hardening (worker recovery, retry, timeout, idempotence light)
+- `v0.11.1` Phase 11 patch - CI quality gate and coverage enforcement
+- `v1.0.0` Phase 12 - contest finalization and release milestone
