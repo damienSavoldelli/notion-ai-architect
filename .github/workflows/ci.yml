@@ -1,4 +1,4 @@
-name: CI
+name: CI - Test & Coverage
 
 on:
   push:
@@ -21,6 +21,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
 
       - name: Run tests
         run: bun run test
