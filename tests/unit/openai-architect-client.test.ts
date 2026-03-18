@@ -56,7 +56,6 @@ describe("OpenAiArchitectClient", () => {
     expect(createImpl).toHaveBeenCalledWith({
       model: "gpt-5.2",
       input: expect.stringContaining("Build an AI CRM assistant"),
-      temperature: 0.2,
     });
   });
 

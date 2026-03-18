@@ -153,31 +153,10 @@ export class NotionClient implements NotionRepository {
   async createTasks(input: CreateTasksInput): Promise<ReadonlyArray<Task>> {
     const createdTasks = await Promise.all(
       input.tasks.map(async (taskInput) => {
-        const response = await this.notion.pages.create({
-          parent: {
-            data_source_id: this.config.tasksDatabaseId,
-          },
-          properties: {
-            Task: {
-              title: [
-                {
-                  type: "text",
-                  text: {
-                    content: taskInput.title,
-                  },
-                },
-              ],
-            },
-            Project: {
-              relation: [{ id: input.projectId }],
-            },
-            Status: {
-              select: { name: "todo" },
-            },
-            Priority: {
-              select: { name: taskInput.priority },
-            },
-          },
+        const response = await this.createTaskPageWithTitleFallback(input.projectId, {
+          title: taskInput.title,
+          description: taskInput.description,
+          priority: taskInput.priority,
         });
 
         const taskId = this.extractPageId(response);
@@ -197,6 +176,52 @@ export class NotionClient implements NotionRepository {
     );
 
     return createdTasks;
+  }
+
+  private async createTaskPageWithTitleFallback(
+    projectId: string,
+    taskInput: { title: string; description: string; priority: "low" | "medium" | "high" },
+  ) {
+    const titlePropertyCandidates = ["Task", "Tasks", "Name"] as const;
+    let lastError: unknown;
+
+    for (const titlePropertyKey of titlePropertyCandidates) {
+      try {
+        return await this.notion.pages.create({
+          parent: {
+            data_source_id: this.config.tasksDatabaseId,
+          },
+          properties: {
+            [titlePropertyKey]: {
+              title: [
+                {
+                  type: "text",
+                  text: {
+                    content: taskInput.title,
+                  },
+                },
+              ],
+            },
+            Project: {
+              relation: [{ id: projectId }],
+            },
+            Status: {
+              select: { name: "todo" },
+            },
+            Priority: {
+              select: { name: taskInput.priority },
+            },
+          },
+        });
+      } catch (error) {
+        lastError = error;
+        if (!isUnknownPropertyError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError ?? new Error("Unable to create task page in Notion.");
   }
 
   private mapIdea(page: unknown): Idea | null {
@@ -305,3 +330,14 @@ const isStatusProperty = (value: unknown): value is NotionStatusProperty => {
 
 const isIdeaStatus = (value: unknown): value is IdeaStatus =>
   typeof value === "string" && IDEA_STATUSES.has(value as IdeaStatus);
+
+const isUnknownPropertyError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes("is not a property that exists") ||
+    error.message.includes("Could not find property")
+  );
+};
