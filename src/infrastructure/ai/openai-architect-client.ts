@@ -768,9 +768,14 @@ const sanitizeIdeaInput = (idea: string): string => {
     /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g,
     " ",
   );
-  const trimmed = withoutControlChars.replace(/\s+/g, " ").trim();
-  const maxLength = 1200;
-  const limited = trimmed.slice(0, maxLength);
+  const normalized = withoutControlChars.replace(/\r\n/g, "\n");
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => line.length > 0);
+  const compact = lines.join("\n");
+  const maxLength = 4000;
+  const limited = compact.slice(0, maxLength);
 
   return limited.length > 0 ? limited : "Untitled project idea";
 };

@@ -250,6 +250,156 @@ Implement with validation, error handling, and integration tests.
     expect(updateIdeaStatus).toHaveBeenNthCalledWith(2, "idea-1", "done");
   });
 
+  it("builds AI input from title + content when idea content exists", async () => {
+    const {
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+      listNewIdeas,
+      generateProjectFromIdea,
+      createProject,
+      createTasks,
+      createIssue,
+    } = createMocks();
+
+    listNewIdeas.mockResolvedValue([
+      {
+        id: "idea-1",
+        title: "Build a freelancer invoice app",
+        content: "Core problem\n\nFreelancers lose track of payment reminders.",
+        status: "new",
+        createdAt: new Date("2026-03-16T12:00:00.000Z"),
+      },
+    ]);
+    generateProjectFromIdea.mockResolvedValue({
+      product_overview: {
+        name: "Invoice app",
+        description: "desc",
+        target_users: ["freelancers"],
+      },
+      architecture: {
+        frontend: "React",
+        backend: "Fastify",
+        database: "PostgreSQL",
+        infrastructure: "Docker",
+      },
+      tasks: [
+        {
+          title: "Task 1",
+          description: "Task",
+          priority: "medium",
+        },
+      ],
+      roadmap: [{ sprint: "Sprint 1", tasks: ["Task 1"] }],
+    });
+    createProject.mockResolvedValue({
+      id: "project-1",
+      ideaId: "idea-1",
+      name: "Invoice app",
+      productPlan: "desc",
+      architecture: "{}",
+      status: "draft",
+    });
+    createTasks.mockResolvedValue([
+      {
+        id: "task-1",
+        projectId: "project-1",
+        title: "Task 1",
+        description: "Task",
+        status: "todo",
+        priority: "medium",
+      },
+    ]);
+    createIssue.mockResolvedValue("https://github.com/acme/repo/issues/1");
+
+    const workflow = new IdeaToProjectWorkflow(
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+    );
+
+    await workflow.runOnce();
+
+    expect(generateProjectFromIdea).toHaveBeenCalledWith(
+      "Build a freelancer invoice app\n\nCore problem\nFreelancers lose track of payment reminders.",
+    );
+  });
+
+  it("falls back to title-only AI input when content is empty", async () => {
+    const {
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+      listNewIdeas,
+      generateProjectFromIdea,
+      createProject,
+      createTasks,
+      createIssue,
+    } = createMocks();
+
+    listNewIdeas.mockResolvedValue([
+      {
+        id: "idea-1",
+        title: "Build a freelancer invoice app",
+        content: " \n \n ",
+        status: "new",
+        createdAt: new Date("2026-03-16T12:00:00.000Z"),
+      },
+    ]);
+    generateProjectFromIdea.mockResolvedValue({
+      product_overview: {
+        name: "Invoice app",
+        description: "desc",
+        target_users: ["freelancers"],
+      },
+      architecture: {
+        frontend: "React",
+        backend: "Fastify",
+        database: "PostgreSQL",
+        infrastructure: "Docker",
+      },
+      tasks: [
+        {
+          title: "Task 1",
+          description: "Task",
+          priority: "medium",
+        },
+      ],
+      roadmap: [{ sprint: "Sprint 1", tasks: ["Task 1"] }],
+    });
+    createProject.mockResolvedValue({
+      id: "project-1",
+      ideaId: "idea-1",
+      name: "Invoice app",
+      productPlan: "desc",
+      architecture: "{}",
+      status: "draft",
+    });
+    createTasks.mockResolvedValue([
+      {
+        id: "task-1",
+        projectId: "project-1",
+        title: "Task 1",
+        description: "Task",
+        status: "todo",
+        priority: "medium",
+      },
+    ]);
+    createIssue.mockResolvedValue("https://github.com/acme/repo/issues/1");
+
+    const workflow = new IdeaToProjectWorkflow(
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+    );
+
+    await workflow.runOnce();
+
+    expect(generateProjectFromIdea).toHaveBeenCalledWith(
+      "Build a freelancer invoice app",
+    );
+  });
+
   it("sets idea status to error when processing fails", async () => {
     const {
       notionRepository,

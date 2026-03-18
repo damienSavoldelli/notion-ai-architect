@@ -48,6 +48,15 @@ describe("Workflow integration", () => {
       },
       {
         dataSources: { query: notionQuery },
+        blocks: {
+          children: {
+            list: vi.fn().mockResolvedValue({
+              results: [],
+              has_more: false,
+              next_cursor: null,
+            }),
+          },
+        },
         pages: { create: notionCreatePage, update: notionUpdatePage },
       } as never,
     );

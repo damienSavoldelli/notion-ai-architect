@@ -11,6 +11,7 @@ const baseConfig = {
 
 const createMockSdk = (params?: {
   queryImpl?: () => Promise<unknown>;
+  blocksChildrenListImpl?: () => Promise<unknown>;
   createPageImpl?: () => Promise<unknown>;
   updatePageImpl?: () => Promise<unknown>;
 }) =>
@@ -25,6 +26,18 @@ const createMockSdk = (params?: {
           }),
       ),
     },
+    blocks: {
+      children: {
+        list: vi.fn(
+          params?.blocksChildrenListImpl ??
+            vi.fn().mockResolvedValue({
+              results: [],
+              has_more: false,
+              next_cursor: null,
+            }),
+        ),
+      },
+    },
     pages: {
       create: vi.fn(
         params?.createPageImpl ?? vi.fn().mockResolvedValue({ object: "page", id: "p-1" }),
@@ -36,6 +49,163 @@ const createMockSdk = (params?: {
   }) as unknown as Client;
 
 describe("NotionClient", () => {
+  it("returns title-only idea when page content is empty", async () => {
+    const mockSdk = createMockSdk({
+      queryImpl: vi.fn().mockResolvedValue({
+        results: [
+          {
+            object: "page",
+            id: "idea-1",
+            created_time: "2026-03-16T10:00:00.000Z",
+            properties: {
+              Title: {
+                type: "title",
+                title: [{ plain_text: "Build SaaS invoicing tool" }],
+              },
+              Status: {
+                type: "select",
+                select: { name: "new" },
+              },
+            },
+          },
+        ],
+        has_more: false,
+        next_cursor: null,
+      }),
+      blocksChildrenListImpl: vi.fn().mockResolvedValue({
+        results: [],
+        has_more: false,
+        next_cursor: null,
+      }),
+    });
+    const notionClient = new NotionClient(baseConfig, mockSdk);
+
+    await expect(notionClient.listNewIdeas()).resolves.toEqual([
+      {
+        id: "idea-1",
+        title: "Build SaaS invoicing tool",
+        status: "new",
+        createdAt: new Date("2026-03-16T10:00:00.000Z"),
+      },
+    ]);
+  });
+
+  it("extracts and concatenates page content from supported blocks", async () => {
+    const mockSdk = createMockSdk({
+      queryImpl: vi.fn().mockResolvedValue({
+        results: [
+          {
+            object: "page",
+            id: "idea-1",
+            created_time: "2026-03-16T10:00:00.000Z",
+            properties: {
+              Title: {
+                type: "title",
+                title: [{ plain_text: "Build SaaS invoicing tool" }],
+              },
+              Status: {
+                type: "select",
+                select: { name: "new" },
+              },
+            },
+          },
+        ],
+        has_more: false,
+        next_cursor: null,
+      }),
+      blocksChildrenListImpl: vi.fn().mockResolvedValue({
+        results: [
+          {
+            type: "heading_2",
+            heading_2: {
+              rich_text: [{ plain_text: "Core problem" }],
+            },
+          },
+          {
+            type: "paragraph",
+            paragraph: {
+              rich_text: [{ plain_text: "Freelancers need automated invoicing." }],
+            },
+          },
+          {
+            type: "bulleted_list_item",
+            bulleted_list_item: {
+              rich_text: [{ plain_text: "PDF export" }],
+            },
+          },
+          {
+            type: "numbered_list_item",
+            numbered_list_item: {
+              rich_text: [{ plain_text: "Payment reminders" }],
+            },
+          },
+        ],
+        has_more: false,
+        next_cursor: null,
+      }),
+    });
+    const notionClient = new NotionClient(baseConfig, mockSdk);
+
+    await expect(notionClient.listNewIdeas()).resolves.toEqual([
+      {
+        id: "idea-1",
+        title: "Build SaaS invoicing tool",
+        content:
+          "Core problem\nFreelancers need automated invoicing.\n- PDF export\n1. Payment reminders",
+        status: "new",
+        createdAt: new Date("2026-03-16T10:00:00.000Z"),
+      },
+    ]);
+  });
+
+  it("falls back to title-only when extracted content is whitespace only", async () => {
+    const mockSdk = createMockSdk({
+      queryImpl: vi.fn().mockResolvedValue({
+        results: [
+          {
+            object: "page",
+            id: "idea-1",
+            created_time: "2026-03-16T10:00:00.000Z",
+            properties: {
+              Title: {
+                type: "title",
+                title: [{ plain_text: "Build SaaS invoicing tool" }],
+              },
+              Status: {
+                type: "select",
+                select: { name: "new" },
+              },
+            },
+          },
+        ],
+        has_more: false,
+        next_cursor: null,
+      }),
+      blocksChildrenListImpl: vi.fn().mockResolvedValue({
+        results: [
+          {
+            type: "paragraph",
+            paragraph: {
+              rich_text: [{ plain_text: "   " }],
+            },
+          },
+        ],
+        has_more: false,
+        next_cursor: null,
+      }),
+    });
+    const notionClient = new NotionClient(baseConfig, mockSdk);
+
+    await expect(notionClient.listNewIdeas()).resolves.toEqual([
+      {
+        id: "idea-1",
+        title: "Build SaaS invoicing tool",
+        status: "new",
+        createdAt: new Date("2026-03-16T10:00:00.000Z"),
+      },
+    ]);
+  });
+
   it("maps Notion pages into Idea entities and paginates", async () => {
     const mockSdk = createMockSdk({
       queryImpl: vi

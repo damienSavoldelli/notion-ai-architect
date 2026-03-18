@@ -42,9 +42,10 @@ export class NotionClient implements NotionRepository {
       });
 
       for (const result of response.results) {
-        const idea = this.mapIdea(result);
-        if (idea) {
-          ideas.push(idea);
+        const ideaBase = this.mapIdea(result);
+        if (ideaBase) {
+          const content = await this.getIdeaPageContent(ideaBase.id);
+          ideas.push(content ? { ...ideaBase, content } : ideaBase);
         }
       }
 
@@ -248,6 +249,33 @@ export class NotionClient implements NotionRepository {
     throw lastError ?? new Error("Unable to create task page in Notion.");
   }
 
+  private async getIdeaPageContent(pageId: string): Promise<string | null> {
+    const textParts: string[] = [];
+    let nextCursor: string | undefined;
+
+    while (true) {
+      const response = await this.notion.blocks.children.list({
+        block_id: pageId,
+        start_cursor: nextCursor,
+      });
+
+      for (const block of response.results) {
+        const extracted = extractTextFromBlock(block);
+        if (extracted) {
+          textParts.push(extracted);
+        }
+      }
+
+      if (!response.has_more || !response.next_cursor) {
+        break;
+      }
+      nextCursor = response.next_cursor;
+    }
+
+    const content = sanitizeIdeaContent(textParts.join("\n"));
+    return content.length > 0 ? content : null;
+  }
+
   private mapIdea(page: unknown): Idea | null {
     if (!isObject(page)) {
       return null;
@@ -354,6 +382,65 @@ const isStatusProperty = (value: unknown): value is NotionStatusProperty => {
 
 const isIdeaStatus = (value: unknown): value is IdeaStatus =>
   typeof value === "string" && IDEA_STATUSES.has(value as IdeaStatus);
+
+const sanitizeIdeaContent = (value: string): string => {
+  const withoutControlChars = value.replace(
+    /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g,
+    " ",
+  );
+  const normalized = withoutControlChars.replace(/\r\n/g, "\n");
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  return lines.join("\n");
+};
+
+const extractTextFromBlock = (block: unknown): string | null => {
+  if (!isObject(block) || typeof block.type !== "string") {
+    return null;
+  }
+
+  switch (block.type) {
+    case "paragraph":
+    case "heading_1":
+    case "heading_2":
+    case "heading_3":
+      return extractRichTextField(block, block.type);
+    case "bulleted_list_item": {
+      const text = extractRichTextField(block, "bulleted_list_item");
+      return text ? `- ${text}` : null;
+    }
+    case "numbered_list_item": {
+      const text = extractRichTextField(block, "numbered_list_item");
+      return text ? `1. ${text}` : null;
+    }
+    default:
+      return null;
+  }
+};
+
+const extractRichTextField = (
+  block: Record<string, unknown>,
+  key: string,
+): string | null => {
+  const typed = block[key];
+  if (!isObject(typed) || !Array.isArray(typed.rich_text)) {
+    return null;
+  }
+
+  const text = typed.rich_text
+    .map((fragment) =>
+      isObject(fragment) && typeof fragment.plain_text === "string"
+        ? fragment.plain_text
+        : "",
+    )
+    .join("")
+    .trim();
+
+  return text.length > 0 ? text : null;
+};
 
 const buildRichText = (content: string) => [
   {

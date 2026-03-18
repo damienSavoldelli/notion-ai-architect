@@ -37,8 +37,9 @@ export class IdeaToProjectWorkflow {
       await this.notionRepository.updateIdeaStatus(idea.id, "processing");
 
       try {
+        const ideaInput = buildIdeaAiInput(idea.title, idea.content);
         const generatedProject =
-          await this.aiArchitectService.generateProjectFromIdea(idea.title);
+          await this.aiArchitectService.generateProjectFromIdea(ideaInput);
         const architectureJson = JSON.stringify(
           generatedProject.architecture,
           null,
@@ -111,3 +112,29 @@ const formatArchitectureText = (architecture: TechnicalArchitecture): string =>
 Backend: ${architecture.backend}
 Database: ${architecture.database}
 Infrastructure: ${architecture.infrastructure}`;
+
+const buildIdeaAiInput = (title: string, content?: string): string => {
+  const cleanTitle = sanitizeIdeaInputSegment(title);
+  const cleanContent = sanitizeIdeaInputSegment(content ?? "");
+
+  const composed = cleanContent
+    ? `${cleanTitle || "Untitled idea"}\n\n${cleanContent}`
+    : cleanTitle || "Untitled idea";
+
+  const maxLength = 4000;
+  return composed.slice(0, maxLength).trim();
+};
+
+const sanitizeIdeaInputSegment = (value: string): string => {
+  const withoutControlChars = value.replace(
+    /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g,
+    " ",
+  );
+  const normalized = withoutControlChars.replace(/\r\n/g, "\n");
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => line.length > 0);
+
+  return lines.join("\n");
+};
