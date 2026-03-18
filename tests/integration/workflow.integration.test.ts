@@ -155,7 +155,7 @@ describe("Workflow integration", () => {
     expect(githubCreateIssue).toHaveBeenCalledWith({
       owner: "acme",
       repo: "notion-ai-architect",
-      title: "[AI] Setup invoice domain",
+      title: "[AI][AI Invoicing Assistant] Setup invoice domain",
       body: `## 🧩 Task Overview
 
 Create invoice core entities.
@@ -182,7 +182,14 @@ Implement this feature to improve the product functionality.
 - Source: AI-generated from Notion
 
 ---`,
-      labels: ["AI", "high", "feature", "backend", "billing"],
+      labels: [
+        "AI",
+        "high",
+        "feature",
+        "project:ai-invoicing-assistant",
+        "backend",
+        "billing",
+      ],
     });
   });
 });

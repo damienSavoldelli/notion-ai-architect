@@ -190,7 +190,7 @@ describe("IdeaToProjectWorkflow", () => {
     });
     expect(linkIdeaToProject).toHaveBeenCalledWith("idea-1", "project-1");
     expect(githubRepository.createIssue).toHaveBeenCalledWith({
-      title: "[AI] Setup backend",
+      title: "[AI][AI CRM Assistant] Setup backend",
       body: `## 🧩 Task Overview
 
 Initialize API foundation.
@@ -218,7 +218,14 @@ Implement this feature to improve the product functionality.
 - Source: AI-generated from Notion
 
 ---`,
-      labels: ["AI", "high", "feature", "backend", "auth"],
+      labels: [
+        "AI",
+        "high",
+        "feature",
+        "project:ai-crm-assistant",
+        "backend",
+        "auth",
+      ],
     });
     expect(updateTaskGithubIssue).toHaveBeenCalledWith(
       "task-1",

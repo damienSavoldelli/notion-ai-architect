@@ -2,6 +2,7 @@ export type GithubIssuePriority = "low" | "medium" | "high";
 export type GithubIssueType = "feature" | "bug" | "chore";
 
 export interface GithubIssueTaskInput {
+  projectName?: string;
   title: string;
   description: string;
   priority: GithubIssuePriority;
@@ -24,10 +25,12 @@ const DEFAULT_ACCEPTANCE_CRITERIA: ReadonlyArray<string> = [
 export const mapTaskToGithubIssue = (
   task: GithubIssueTaskInput,
 ): GithubIssuePayload => {
-  const title = `[AI] ${normalizeTitle(task.title)}`;
+  const projectName = normalizeProjectName(task.projectName);
+  const title = `[AI][${projectName}] ${normalizeTitle(task.title)}`;
   const description = normalizeBodyText(task.description);
   const priority = normalizePriority(task.priority);
   const type = normalizeType(task.type);
+  const projectLabel = `project:${slugifyProjectName(projectName)}`;
   const acceptanceCriteria = normalizeAcceptanceCriteria(
     task.acceptance_criteria,
   );
@@ -62,6 +65,7 @@ ${acceptanceCriteria.map((criteria) => `- [ ] ${criteria}`).join("\n")}
     "AI",
     priority,
     type,
+    projectLabel,
     ...(task.labels ?? []).map((label) => normalizeLabel(label)),
   ]);
 
@@ -75,6 +79,11 @@ ${acceptanceCriteria.map((criteria) => `- [ ] ${criteria}`).join("\n")}
 const normalizeTitle = (value: string): string => {
   const clean = value.replace(/\s+/g, " ").trim();
   return clean.length > 0 ? clean : "Untitled task";
+};
+
+const normalizeProjectName = (value?: string): string => {
+  const clean = value?.replace(/\s+/g, " ").trim();
+  return clean && clean.length > 0 ? clean : "General";
 };
 
 const normalizeBodyText = (value: string): string => {
@@ -118,4 +127,18 @@ const dedupeLabels = (labels: ReadonlyArray<string>): ReadonlyArray<string> => {
     }
   }
   return Array.from(unique);
+};
+
+const slugifyProjectName = (value: string): string => {
+  const normalized = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036F]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+
+  const fallback = normalized.length > 0 ? normalized : "general";
+  const maxSlugLength = 42;
+  return fallback.slice(0, maxSlugLength).replace(/-+$/g, "") || "general";
 };

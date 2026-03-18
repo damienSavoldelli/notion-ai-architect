@@ -67,6 +67,7 @@ export class IdeaToProjectWorkflow {
           const sourceTask = generatedProject.tasks[index];
 
           const issueTaskInput: GithubIssueTaskInput = {
+            projectName: project.name,
             title: sourceTask?.title ?? task.title,
             description: sourceTask?.description ?? task.description,
             priority: sourceTask?.priority ?? task.priority,

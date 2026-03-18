@@ -4,6 +4,7 @@ import { mapTaskToGithubIssue } from "../../src/application/workflows/github-iss
 describe("mapTaskToGithubIssue", () => {
   it("maps task to a professional GitHub issue format", () => {
     const mapped = mapTaskToGithubIssue({
+      projectName: "Freelance Invoice Assistant",
       title: "Implement JWT authentication system",
       description: "Create secure login system",
       priority: "high",
@@ -17,7 +18,7 @@ describe("mapTaskToGithubIssue", () => {
     });
 
     expect(mapped).toEqual({
-      title: "[AI] Implement JWT authentication system",
+      title: "[AI][Freelance Invoice Assistant] Implement JWT authentication system",
       body: `## 🧩 Task Overview
 
 Create secure login system
@@ -45,7 +46,14 @@ Implement this feature to improve the product functionality.
 - Source: AI-generated from Notion
 
 ---`,
-      labels: ["AI", "high", "feature", "backend", "auth"],
+      labels: [
+        "AI",
+        "high",
+        "feature",
+        "project:freelance-invoice-assistant",
+        "backend",
+        "auth",
+      ],
     });
   });
 
@@ -58,10 +66,17 @@ Implement this feature to improve the product functionality.
       acceptance_criteria: [],
     });
 
-    expect(mapped.title).toBe("[AI] Untitled task");
+    expect(mapped.title).toBe("[AI][General] Untitled task");
     expect(mapped.body).toContain("- [ ] Implementation is completed and reviewed.");
     expect(mapped.body).toContain("- [ ] Tests are added or updated.");
-    expect(mapped.labels).toEqual(["AI", "medium", "chore", "misc", "infra"]);
+    expect(mapped.labels).toEqual([
+      "AI",
+      "medium",
+      "chore",
+      "project:general",
+      "misc",
+      "infra",
+    ]);
     expect(mapped.labels.some((label) => label === "undefined")).toBe(false);
   });
 });
