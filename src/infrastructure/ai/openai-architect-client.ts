@@ -101,11 +101,13 @@ export interface OpenAiArchitectClientConfig {
   apiKey: string;
   model: string;
   temperature?: number;
+  timeoutMs?: number;
 }
 
 export class OpenAiArchitectClient implements AiArchitectService {
   private readonly openai: OpenAiSdk;
   private static readonly MAX_ATTEMPTS = 3;
+  private static readonly DEFAULT_TIMEOUT_MS = 15_000;
 
   constructor(
     private readonly config: OpenAiArchitectClientConfig,
@@ -119,19 +121,40 @@ export class OpenAiArchitectClient implements AiArchitectService {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= OpenAiArchitectClient.MAX_ATTEMPTS; attempt += 1) {
-      const response = await this.openai.responses.create({
-        model: this.config.model,
-        input: buildPrompt(sanitizedIdea, attempt),
-        temperature: this.config.temperature ?? 0.2,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "generated_project",
-            strict: true,
-            schema: GENERATED_PROJECT_RESPONSE_SCHEMA,
-          },
-        },
-      });
+      let response: unknown;
+
+      try {
+        response = await withTimeout(
+          this.openai.responses.create({
+            model: this.config.model,
+            input: buildPrompt(sanitizedIdea, attempt),
+            temperature: this.config.temperature ?? 0.2,
+            text: {
+              format: {
+                type: "json_schema",
+                name: "generated_project",
+                strict: true,
+                schema: GENERATED_PROJECT_RESPONSE_SCHEMA,
+              },
+            },
+          }),
+          this.config.timeoutMs ?? OpenAiArchitectClient.DEFAULT_TIMEOUT_MS,
+          `OpenAI request timed out after ${
+            this.config.timeoutMs ?? OpenAiArchitectClient.DEFAULT_TIMEOUT_MS
+          }ms.`,
+        );
+      } catch (error) {
+        lastError =
+          error instanceof Error
+            ? error
+            : new Error("OpenAI request failed with an unknown error.");
+
+        if (attempt >= OpenAiArchitectClient.MAX_ATTEMPTS) {
+          throw lastError;
+        }
+
+        continue;
+      }
 
       const outputText = extractOutputText(response);
       if (!outputText) {
@@ -168,6 +191,27 @@ export class OpenAiArchitectClient implements AiArchitectService {
     return buildFallbackGeneratedProject(sanitizedIdea);
   }
 }
+
+const withTimeout = async <T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+};
 
 const buildPrompt = (idea: string, attempt: number): string =>
   `${SYSTEM_PROMPT}

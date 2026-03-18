@@ -165,14 +165,34 @@ describe("OpenAiArchitectClient", () => {
   });
 
   it("throws when OpenAI API request fails", async () => {
+    const createImpl = vi.fn().mockRejectedValue(new Error("openai unavailable"));
     const client = new OpenAiArchitectClient(
       baseConfig,
-      createMockSdk(vi.fn().mockRejectedValue(new Error("openai unavailable"))),
+      createMockSdk(createImpl),
     );
 
     await expect(client.generateProjectFromIdea("Build something")).rejects.toThrow(
       "openai unavailable",
     );
+    expect(createImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it("times out OpenAI calls when request exceeds timeout", async () => {
+    const createImpl = vi.fn().mockImplementation(
+      () => new Promise(() => undefined),
+    );
+    const client = new OpenAiArchitectClient(
+      {
+        ...baseConfig,
+        timeoutMs: 5,
+      },
+      createMockSdk(createImpl),
+    );
+
+    await expect(client.generateProjectFromIdea("Build something")).rejects.toThrow(
+      "OpenAI request timed out after 5ms.",
+    );
+    expect(createImpl).toHaveBeenCalledTimes(3);
   });
 
   it("sanitizes input before sending prompt", async () => {
