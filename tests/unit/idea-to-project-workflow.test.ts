@@ -169,7 +169,9 @@ describe("IdeaToProjectWorkflow", () => {
       ideaId: "idea-1",
       name: "AI CRM Assistant",
       productPlan: "Automates CRM follow-up actions.",
-      architecture: `{
+      architecture:
+        "Frontend: React\nBackend: Fastify\nDatabase: PostgreSQL\nInfrastructure: Docker",
+      architectureJson: `{
   "frontend": "React",
   "backend": "Fastify",
   "database": "PostgreSQL",

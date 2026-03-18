@@ -7,6 +7,7 @@ export interface CreateProjectInput {
   name: string;
   productPlan: string;
   architecture: string;
+  architectureJson?: string;
 }
 
 export interface CreateTaskInput {

@@ -225,6 +225,8 @@ describe("NotionClient", () => {
         name: "Billing SaaS",
         productPlan: "MVP with auth, billing and invoices",
         architecture: "Fastify + Postgres + Redis",
+        architectureJson:
+          '{\n  "frontend": "React",\n  "backend": "Fastify"\n}',
       }),
     ).resolves.toEqual({
       id: "project-1",
@@ -236,6 +238,98 @@ describe("NotionClient", () => {
     });
 
     expect(createPageImpl).toHaveBeenCalledWith({
+      parent: {
+        data_source_id: "projects-db",
+      },
+      properties: {
+        Name: {
+          title: [
+            {
+              type: "text",
+              text: {
+                content: "Billing SaaS",
+              },
+            },
+          ],
+        },
+        Idea: {
+          relation: [{ id: "idea-1" }],
+        },
+        "Product Plan": {
+          rich_text: [
+            {
+              type: "text",
+              text: {
+                content: "MVP with auth, billing and invoices",
+              },
+            },
+          ],
+        },
+        Architecture: {
+          rich_text: [
+            {
+              type: "text",
+              text: {
+                content: "Fastify + Postgres + Redis",
+              },
+            },
+          ],
+        },
+        "Architecture JSON": {
+          rich_text: [
+            {
+              type: "text",
+              text: {
+                content: '{\n  "frontend": "React",\n  "backend": "Fastify"\n}',
+              },
+            },
+          ],
+        },
+        Status: {
+          select: { name: "draft" },
+        },
+      },
+    });
+  });
+
+  it("falls back when Architecture JSON property does not exist", async () => {
+    const createPageImpl = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error('Property "Architecture JSON" is not a property that exists.'),
+      )
+      .mockRejectedValueOnce(
+        new Error('Property "Architecture Json" is not a property that exists.'),
+      )
+      .mockRejectedValueOnce(
+        new Error('Property "ArchitectureJSON" is not a property that exists.'),
+      )
+      .mockResolvedValueOnce({
+        object: "page",
+        id: "project-1",
+      });
+
+    const notionClient = new NotionClient(
+      baseConfig,
+      createMockSdk({ createPageImpl }),
+    );
+
+    await expect(
+      notionClient.createProject({
+        ideaId: "idea-1",
+        name: "Billing SaaS",
+        productPlan: "MVP with auth, billing and invoices",
+        architecture: "Fastify + Postgres + Redis",
+        architectureJson:
+          '{\n  "frontend": "React",\n  "backend": "Fastify"\n}',
+      }),
+    ).resolves.toMatchObject({
+      id: "project-1",
+      name: "Billing SaaS",
+    });
+
+    expect(createPageImpl).toHaveBeenCalledTimes(4);
+    expect(createPageImpl).toHaveBeenLastCalledWith({
       parent: {
         data_source_id: "projects-db",
       },

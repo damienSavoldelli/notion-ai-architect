@@ -15,6 +15,8 @@ export interface NotionClientConfig {
   tasksDatabaseId: string;
 }
 
+type NotionPageCreateProperties = Parameters<Client["pages"]["create"]>[0]["properties"];
+
 export class NotionClient implements NotionRepository {
   private readonly notion: Client;
 
@@ -91,49 +93,7 @@ export class NotionClient implements NotionRepository {
   }
 
   async createProject(input: CreateProjectInput): Promise<Project> {
-    const response = await this.notion.pages.create({
-      parent: {
-        data_source_id: this.config.projectsDatabaseId,
-      },
-      properties: {
-        Name: {
-          title: [
-            {
-              type: "text",
-              text: {
-                content: input.name,
-              },
-            },
-          ],
-        },
-        Idea: {
-          relation: [{ id: input.ideaId }],
-        },
-        "Product Plan": {
-          rich_text: [
-            {
-              type: "text",
-              text: {
-                content: input.productPlan,
-              },
-            },
-          ],
-        },
-        Architecture: {
-          rich_text: [
-            {
-              type: "text",
-              text: {
-                content: input.architecture,
-              },
-            },
-          ],
-        },
-        Status: {
-          select: { name: "draft" },
-        },
-      },
-    });
+    const response = await this.createProjectPage(input);
 
     const projectId = this.extractPageId(response);
     if (!projectId) {
@@ -148,6 +108,77 @@ export class NotionClient implements NotionRepository {
       architecture: input.architecture,
       status: "draft",
     };
+  }
+
+  private async createProjectPage(input: CreateProjectInput) {
+    const propertiesBase: NotionPageCreateProperties = {
+      Name: {
+        title: buildRichText(input.name),
+      },
+      Idea: {
+        relation: [{ id: input.ideaId }],
+      },
+      "Product Plan": {
+        rich_text: buildRichText(input.productPlan),
+      },
+      Architecture: {
+        rich_text: buildRichText(input.architecture),
+      },
+      Status: {
+        select: { name: "draft" },
+      },
+    };
+
+    if (!input.architectureJson) {
+      return this.notion.pages.create({
+        parent: {
+          data_source_id: this.config.projectsDatabaseId,
+        },
+        properties: propertiesBase,
+      });
+    }
+
+    const architectureJsonPropertyCandidates = [
+      "Architecture JSON",
+      "Architecture Json",
+      "ArchitectureJSON",
+    ] as const;
+    let lastError: unknown;
+
+    for (const propertyKey of architectureJsonPropertyCandidates) {
+      try {
+        return await this.notion.pages.create({
+          parent: {
+            data_source_id: this.config.projectsDatabaseId,
+          },
+          properties: {
+            ...propertiesBase,
+            [propertyKey]: {
+              rich_text: [
+                {
+                  type: "text",
+                  text: {
+                    content: input.architectureJson,
+                  },
+                },
+              ],
+            },
+          },
+        });
+      } catch (error) {
+        lastError = error;
+        if (!isUnknownPropertyError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    return this.notion.pages.create({
+      parent: {
+        data_source_id: this.config.projectsDatabaseId,
+      },
+      properties: propertiesBase,
+    });
   }
 
   async createTasks(input: CreateTasksInput): Promise<ReadonlyArray<Task>> {
@@ -193,14 +224,7 @@ export class NotionClient implements NotionRepository {
           },
           properties: {
             [titlePropertyKey]: {
-              title: [
-                {
-                  type: "text",
-                  text: {
-                    content: taskInput.title,
-                  },
-                },
-              ],
+              title: buildRichText(taskInput.title),
             },
             Project: {
               relation: [{ id: projectId }],
@@ -330,6 +354,15 @@ const isStatusProperty = (value: unknown): value is NotionStatusProperty => {
 
 const isIdeaStatus = (value: unknown): value is IdeaStatus =>
   typeof value === "string" && IDEA_STATUSES.has(value as IdeaStatus);
+
+const buildRichText = (content: string) => [
+  {
+    type: "text" as const,
+    text: {
+      content,
+    },
+  },
+];
 
 const isUnknownPropertyError = (error: unknown): boolean => {
   if (!(error instanceof Error)) {

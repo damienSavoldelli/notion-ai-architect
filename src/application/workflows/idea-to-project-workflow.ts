@@ -1,6 +1,7 @@
 import type { AiArchitectService } from "../ports/ai-architect-service";
 import type { GitHubRepository } from "../ports/github-repository";
 import type { NotionRepository } from "../ports/notion-repository";
+import type { TechnicalArchitecture } from "../../domain/entities/generated-project";
 import {
   mapTaskToGithubIssue,
   type GithubIssueTaskInput,
@@ -38,12 +39,18 @@ export class IdeaToProjectWorkflow {
       try {
         const generatedProject =
           await this.aiArchitectService.generateProjectFromIdea(idea.title);
+        const architectureJson = JSON.stringify(
+          generatedProject.architecture,
+          null,
+          2,
+        );
 
         const project = await this.notionRepository.createProject({
           ideaId: idea.id,
           name: generatedProject.product_overview.name,
           productPlan: generatedProject.product_overview.description,
-          architecture: JSON.stringify(generatedProject.architecture, null, 2),
+          architecture: formatArchitectureText(generatedProject.architecture),
+          architectureJson,
         });
         await this.notionRepository.linkIdeaToProject(idea.id, project.id);
 
@@ -96,3 +103,9 @@ export class IdeaToProjectWorkflow {
     return this.githubRepository.createIssue(mappedIssue);
   }
 }
+
+const formatArchitectureText = (architecture: TechnicalArchitecture): string =>
+  `Frontend: ${architecture.frontend}
+Backend: ${architecture.backend}
+Database: ${architecture.database}
+Infrastructure: ${architecture.infrastructure}`;
