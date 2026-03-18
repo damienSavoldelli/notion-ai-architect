@@ -6,6 +6,8 @@ import { IdeaToProjectWorkflow } from "../../src/application/workflows/idea-to-p
 import { IdeaWorker } from "../../src/worker/idea-worker";
 
 class InMemoryNotionRepository implements NotionRepository {
+  public statusTransitions: Array<{ ideaId: string; status: "new" | "processing" | "done" | "error" }> = [];
+
   async listNewIdeas() {
     return [
       {
@@ -15,6 +17,13 @@ class InMemoryNotionRepository implements NotionRepository {
         createdAt: new Date("2026-03-16T15:00:00.000Z"),
       },
     ];
+  }
+
+  async updateIdeaStatus(
+    ideaId: string,
+    status: "new" | "processing" | "done" | "error",
+  ) {
+    this.statusTransitions.push({ ideaId, status });
   }
 
   async createProject(input: {
@@ -108,6 +117,10 @@ describe("Idea worker e2e", () => {
 
     expect(githubRepository.createdIssues).toEqual([
       "https://github.com/acme/notion-ai-architect/issues/1",
+    ]);
+    expect(notionRepository.statusTransitions).toEqual([
+      { ideaId: "idea-1", status: "processing" },
+      { ideaId: "idea-1", status: "done" },
     ]);
     expect(logSpy).toHaveBeenCalledWith(
       "Ideas processed=1, projects=1, tasks=1, issues=1",

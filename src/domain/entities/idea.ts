@@ -1,4 +1,4 @@
-export type IdeaStatus = "new" | "processing" | "done";
+export type IdeaStatus = "new" | "processing" | "done" | "error";
 
 export interface Idea {
   id: string;

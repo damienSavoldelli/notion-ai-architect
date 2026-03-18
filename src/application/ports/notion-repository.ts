@@ -22,6 +22,7 @@ export interface CreateTasksInput {
 
 export interface NotionRepository {
   listNewIdeas(): Promise<ReadonlyArray<Idea>>;
+  updateIdeaStatus(ideaId: string, status: Idea["status"]): Promise<void>;
   createProject(input: CreateProjectInput): Promise<Project>;
   createTasks(input: CreateTasksInput): Promise<ReadonlyArray<Task>>;
 }

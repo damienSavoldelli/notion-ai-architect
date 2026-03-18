@@ -31,6 +31,10 @@ describe("Workflow integration", () => {
       .fn()
       .mockResolvedValueOnce({ object: "page", id: "project-1" })
       .mockResolvedValueOnce({ object: "page", id: "task-1" });
+    const notionUpdatePage = vi.fn().mockResolvedValue({
+      object: "page",
+      id: "idea-1",
+    });
     const notionRepository = new NotionClient(
       {
         authToken: "notion-token",
@@ -40,7 +44,7 @@ describe("Workflow integration", () => {
       },
       {
         dataSources: { query: notionQuery },
-        pages: { create: notionCreatePage },
+        pages: { create: notionCreatePage, update: notionUpdatePage },
       } as never,
     );
 
@@ -112,6 +116,26 @@ describe("Workflow integration", () => {
 
     expect(aiCreateResponse).toHaveBeenCalledTimes(1);
     expect(githubCreateIssue).toHaveBeenCalledTimes(1);
+    expect(notionUpdatePage).toHaveBeenNthCalledWith(1, {
+      page_id: "idea-1",
+      properties: {
+        Status: {
+          select: {
+            name: "processing",
+          },
+        },
+      },
+    });
+    expect(notionUpdatePage).toHaveBeenNthCalledWith(2, {
+      page_id: "idea-1",
+      properties: {
+        Status: {
+          select: {
+            name: "done",
+          },
+        },
+      },
+    });
     expect(githubCreateIssue).toHaveBeenCalledWith({
       owner: "acme",
       repo: "notion-ai-architect",

@@ -55,6 +55,19 @@ export class NotionClient implements NotionRepository {
     return ideas;
   }
 
+  async updateIdeaStatus(ideaId: string, status: Idea["status"]): Promise<void> {
+    await this.notion.pages.update({
+      page_id: ideaId,
+      properties: {
+        Status: {
+          select: {
+            name: status,
+          },
+        },
+      },
+    });
+  }
+
   async createProject(input: CreateProjectInput): Promise<Project> {
     const response = await this.notion.pages.create({
       parent: {
@@ -238,6 +251,7 @@ const IDEA_STATUSES: ReadonlySet<IdeaStatus> = new Set([
   "new",
   "processing",
   "done",
+  "error",
 ]);
 
 const isObject = (value: unknown): value is Record<string, unknown> =>

@@ -6,6 +6,7 @@ import type { NotionRepository } from "../../src/application/ports/notion-reposi
 
 const createMocks = () => {
   const listNewIdeas = vi.fn();
+  const updateIdeaStatus = vi.fn();
   const createProject = vi.fn();
   const createTasks = vi.fn();
   const generateProjectFromIdea = vi.fn();
@@ -13,6 +14,7 @@ const createMocks = () => {
 
   const notionRepository: NotionRepository = {
     listNewIdeas,
+    updateIdeaStatus,
     createProject,
     createTasks,
   };
@@ -32,6 +34,7 @@ const createMocks = () => {
     listNewIdeas,
     createProject,
     createTasks,
+    updateIdeaStatus,
     generateProjectFromIdea,
     createIssue,
   };
@@ -44,6 +47,7 @@ describe("IdeaToProjectWorkflow", () => {
       aiArchitectService,
       githubRepository,
       listNewIdeas,
+      updateIdeaStatus,
     } = createMocks();
     listNewIdeas.mockResolvedValue([]);
 
@@ -62,6 +66,7 @@ describe("IdeaToProjectWorkflow", () => {
 
     expect(aiArchitectService.generateProjectFromIdea).not.toHaveBeenCalled();
     expect(githubRepository.createIssue).not.toHaveBeenCalled();
+    expect(updateIdeaStatus).not.toHaveBeenCalled();
   });
 
   it("orchestrates idea -> project -> tasks -> issues", async () => {
@@ -73,6 +78,7 @@ describe("IdeaToProjectWorkflow", () => {
       generateProjectFromIdea,
       createProject,
       createTasks,
+      updateIdeaStatus,
       createIssue,
     } = createMocks();
     listNewIdeas.mockResolvedValue([
@@ -199,5 +205,38 @@ Implement this feature to improve the product functionality.
 ---`,
       labels: ["AI", "high", "feature", "backend", "auth"],
     });
+    expect(updateIdeaStatus).toHaveBeenNthCalledWith(1, "idea-1", "processing");
+    expect(updateIdeaStatus).toHaveBeenNthCalledWith(2, "idea-1", "done");
+  });
+
+  it("sets idea status to error when processing fails", async () => {
+    const {
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+      listNewIdeas,
+      generateProjectFromIdea,
+      updateIdeaStatus,
+    } = createMocks();
+    listNewIdeas.mockResolvedValue([
+      {
+        id: "idea-1",
+        title: "Broken idea",
+        status: "new",
+        createdAt: new Date("2026-03-16T12:00:00.000Z"),
+      },
+    ]);
+    generateProjectFromIdea.mockRejectedValue(new Error("AI failed"));
+
+    const workflow = new IdeaToProjectWorkflow(
+      notionRepository,
+      aiArchitectService,
+      githubRepository,
+    );
+
+    await expect(workflow.runOnce()).rejects.toThrow("AI failed");
+
+    expect(updateIdeaStatus).toHaveBeenNthCalledWith(1, "idea-1", "processing");
+    expect(updateIdeaStatus).toHaveBeenNthCalledWith(2, "idea-1", "error");
   });
 });

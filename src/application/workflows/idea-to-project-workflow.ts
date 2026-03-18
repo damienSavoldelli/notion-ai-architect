@@ -33,45 +33,53 @@ export class IdeaToProjectWorkflow {
 
     for (const idea of ideas) {
       console.log(`Processing idea ${idea.id}: ${idea.title}`);
+      await this.notionRepository.updateIdeaStatus(idea.id, "processing");
 
-      const generatedProject =
-        await this.aiArchitectService.generateProjectFromIdea(idea.title);
+      try {
+        const generatedProject =
+          await this.aiArchitectService.generateProjectFromIdea(idea.title);
 
-      const project = await this.notionRepository.createProject({
-        ideaId: idea.id,
-        name: generatedProject.product_overview.name,
-        productPlan: generatedProject.product_overview.description,
-        architecture: JSON.stringify(generatedProject.architecture, null, 2),
-      });
+        const project = await this.notionRepository.createProject({
+          ideaId: idea.id,
+          name: generatedProject.product_overview.name,
+          productPlan: generatedProject.product_overview.description,
+          architecture: JSON.stringify(generatedProject.architecture, null, 2),
+        });
 
-      const createdTasks = await this.notionRepository.createTasks({
-        projectId: project.id,
-        tasks: generatedProject.tasks.map((task) => ({
-          title: task.title,
-          description: task.description,
-          priority: task.priority,
-        })),
-      });
+        const createdTasks = await this.notionRepository.createTasks({
+          projectId: project.id,
+          tasks: generatedProject.tasks.map((task) => ({
+            title: task.title,
+            description: task.description,
+            priority: task.priority,
+          })),
+        });
 
-      for (const [index, task] of createdTasks.entries()) {
-        const sourceTask = generatedProject.tasks[index];
+        for (const [index, task] of createdTasks.entries()) {
+          const sourceTask = generatedProject.tasks[index];
 
-        const issueTaskInput: GithubIssueTaskInput = {
-          title: sourceTask?.title ?? task.title,
-          description: sourceTask?.description ?? task.description,
-          priority: sourceTask?.priority ?? task.priority,
-          type: sourceTask?.type,
-          labels: sourceTask?.labels,
-          acceptance_criteria: sourceTask?.acceptance_criteria,
-        };
+          const issueTaskInput: GithubIssueTaskInput = {
+            title: sourceTask?.title ?? task.title,
+            description: sourceTask?.description ?? task.description,
+            priority: sourceTask?.priority ?? task.priority,
+            type: sourceTask?.type,
+            labels: sourceTask?.labels,
+            acceptance_criteria: sourceTask?.acceptance_criteria,
+          };
 
-        await this.createGithubIssue(issueTaskInput);
-        summary.createdIssues += 1;
+          await this.createGithubIssue(issueTaskInput);
+          summary.createdIssues += 1;
+        }
+
+        await this.notionRepository.updateIdeaStatus(idea.id, "done");
+
+        summary.processedIdeas += 1;
+        summary.createdProjects += 1;
+        summary.createdTasks += createdTasks.length;
+      } catch (error) {
+        await this.notionRepository.updateIdeaStatus(idea.id, "error");
+        throw error;
       }
-
-      summary.processedIdeas += 1;
-      summary.createdProjects += 1;
-      summary.createdTasks += createdTasks.length;
     }
 
     console.log(

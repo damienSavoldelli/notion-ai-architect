@@ -12,6 +12,7 @@ const baseConfig = {
 const createMockSdk = (params?: {
   queryImpl?: () => Promise<unknown>;
   createPageImpl?: () => Promise<unknown>;
+  updatePageImpl?: () => Promise<unknown>;
 }) =>
   ({
     dataSources: {
@@ -27,6 +28,9 @@ const createMockSdk = (params?: {
     pages: {
       create: vi.fn(
         params?.createPageImpl ?? vi.fn().mockResolvedValue({ object: "page", id: "p-1" }),
+      ),
+      update: vi.fn(
+        params?.updatePageImpl ?? vi.fn().mockResolvedValue({ object: "page", id: "p-1" }),
       ),
     },
   }) as unknown as Client;
@@ -128,6 +132,32 @@ describe("NotionClient", () => {
     const notionClient = new NotionClient(baseConfig, mockSdk);
 
     await expect(notionClient.listNewIdeas()).resolves.toEqual([]);
+  });
+
+  it("updates idea status", async () => {
+    const updatePageImpl = vi.fn().mockResolvedValue({
+      object: "page",
+      id: "idea-1",
+    });
+    const notionClient = new NotionClient(
+      baseConfig,
+      createMockSdk({ updatePageImpl }),
+    );
+
+    await expect(
+      notionClient.updateIdeaStatus("idea-1", "processing"),
+    ).resolves.toBeUndefined();
+
+    expect(updatePageImpl).toHaveBeenCalledWith({
+      page_id: "idea-1",
+      properties: {
+        Status: {
+          select: {
+            name: "processing",
+          },
+        },
+      },
+    });
   });
 
   it("creates a project page and returns the mapped Project entity", async () => {
