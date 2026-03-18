@@ -207,6 +207,7 @@ describe("OpenAiArchitectClient", () => {
     const calledInput = createImpl.mock.calls[0]?.[0]?.input as string;
     expect(calledInput).toContain("Build AI app");
     expect(calledInput).not.toContain("\u0007");
-    expect(calledInput.length).toBeLessThan(4000);
+    const ideaSection = calledInput.split("Project idea:\n\n")[1] ?? "";
+    expect(ideaSection.length).toBeLessThanOrEqual(4000);
   });
 });

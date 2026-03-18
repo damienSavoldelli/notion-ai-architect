@@ -55,6 +55,13 @@ RULES:
 - Technical notes must include concrete implementation details
 - technical_notes must contain at least 2-3 concrete implementation steps
 - Each task must be understandable by a developer without additional context
+- Each task must be independently implementable and testable
+- Tasks must not overlap or duplicate responsibilities
+- Each task must clearly define its scope, inputs, outputs, and expected behavior
+- Clearly distinguish between backend and frontend responsibilities when applicable
+- Tasks must reflect real-world engineering practices (API design, data persistence, error handling, scalability considerations)
+- Do not include generic filler phrases or abstract descriptions
+- Every sentence must add concrete implementation value
 - Technical notes must reference concrete technologies, data structures, APIs, or algorithms when relevant
 - Avoid generic technical notes like "implement logic", "add validation", or "add tests"
 - Be specific about implementation approach (workflow, persistence, interfaces, integrations)
