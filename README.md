@@ -71,6 +71,21 @@ tests/
 - `bun run test`
 - `bun run typecheck`
 
+## Phase 11 (Demo Hardening)
+
+Current hardening scope on `main` is focused on demo reliability:
+
+- Worker-safe processing with per-idea error isolation (`done` / `error` without full-cycle crash)
+- Simple retry strategy (3 attempts) on critical operations
+- Auto-recovery for stale `processing` ideas
+- OpenAI request timeout (default 15s) with retry
+- Lightweight GitHub idempotence (reuse issue when same title already exists)
+- Clear step-by-step logs for live demo visibility
+
+Operational guide:
+
+- See [RUNBOOK.md](./RUNBOOK.md)
+
 ## Releases
 
 The roadmap is tracked with git tags:
@@ -81,3 +96,9 @@ The roadmap is tracked with git tags:
 - `v0.4.0` Phase 4 - GitHub integration
 - `v0.5.0` Phase 5 - worker orchestration
 - `v0.6.0` Phase 6 - test coverage
+- `v0.7.0` Phase 7 - polish baseline
+- `v0.8.0` Phase 8 - release discipline
+- `v0.9.0` Phase 9 - rich idea content extraction
+- `v0.10.0` Phase 10 - professional GitHub issue generation
+- `v0.10.1` Phase 10 patch - formatting/context improvements
+- `v0.11.0` Phase 11 - demo hardening (worker recovery, retry, timeout, idempotence light)
