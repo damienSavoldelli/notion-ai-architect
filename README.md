@@ -1,55 +1,141 @@
-# notion-ai-architect
+# 🚀 AI Workflow Architect
 
-AI workflow engine that turns Notion ideas into executable projects using AI.
+Turn a simple idea into a production-ready software project automatically.
 
-## Vision
+This system connects Notion, AI, and GitHub to transform raw ideas into structured architecture, actionable tasks, and fully formatted GitHub issues.
 
-Turn a raw idea into an executable software project:
+---
 
-`Idea in Notion -> AI architecture output -> Notion project/tasks -> GitHub issues`
+## ⚡ Overview
 
-## Stack
+AI Workflow Architect automates the early stages of software development.
+
+Instead of manually defining architecture and tasks, the system generates them for you.
+
+`Idea (Notion) -> AI Processing -> Project -> Tasks -> GitHub Issues`
+
+From idea to execution-ready project.
+
+---
+
+## 🧠 Why this matters
+
+Software projects often start with unclear ideas and manual planning.
+
+This system removes that friction by:
+
+- Structuring ideas automatically
+- Generating actionable development tasks
+- Creating ready-to-use GitHub issues
+
+Focus on building, not organizing.
+
+---
+
+## 🚀 Quick Demo (2 minutes)
+
+1. Create an idea in Notion
+2. Run the worker (or trigger via API)
+3. Check generated project/tasks/issues
+
+Your idea is transformed into a structured engineering workflow.
+
+---
+
+## 🐙 Live Demo Output
+
+Generated issues examples are available here:
+
+- https://github.com/damienSavoldelli/ai-workflow-demo
+
+Each processed idea becomes:
+
+- A structured project
+- A set of actionable tasks
+- Production-style GitHub issues
+
+---
+
+## ⚙️ How it works
+
+1. Idea is created in Notion
+2. Worker detects `new` ideas
+3. AI generates:
+   - Product overview
+   - Technical architecture
+   - Execution tasks
+4. Tasks are stored in Notion
+5. GitHub issues are created automatically
+
+---
+
+## 🧱 Architecture
+
+```text
+domain -> application -> infrastructure -> worker/api
+
+Notion = source of truth
+Worker = stateless orchestrator
+AI = structured generation (JSON schema validated)
+GitHub = execution layer
+```
+
+---
+
+## 🧪 Quality & Engineering
+
+- Type-safe with TypeScript + Zod
+- Functional patterns with Effect
+- Unit / Integration / E2E tests
+- CI on push + pull request
+- Coverage gate on lines (`> 90%`)
+
+Built with production-style discipline.
+
+---
+
+## 🛠 Tech Stack
 
 - Runtime: Bun
 - Language: TypeScript
-- Framework: Fastify
-- Functional toolkit: Effect
+- API: Fastify
+- AI: OpenAI
+- Data: Notion API
+- Execution: GitHub API
 - Validation: Zod
 - Testing: Vitest
 
-## Project structure
+---
 
-```text
-src/
-  domain/
-    entities/
-  application/
-    ports/
-    workflows/
-  infrastructure/
-    notion/
-    ai/
-    github/
-  worker/
-  api/
-  config/
-tests/
-  unit/
-  integration/
-  e2e/
+## 📡 System Design Choices
+
+### Stateless workflow
+
+- No in-memory processing state
+- Notion is the system state source
+- Status-driven lifecycle: `new -> processing -> done/error`
+
+### Reliability
+
+- Retry strategy
+- Timeout handling
+- GitHub issue deduplication
+- Recovery for stuck processing states
+
+---
+
+## 🛠 Run locally
+
+```bash
+bun install
+cp .env.example .env
+# fill your credentials
+
+bun run worker:run
+bun run api:run
 ```
 
-## Setup
-
-1. Install dependencies: `bun install`
-2. Create env file: `cp .env.example .env`
-3. Fill `.env` with your Notion, OpenAI and GitHub credentials
-   Recommended for demo stability: `OPENAI_MODEL=gpt-4o-mini`
-4. Run tests: `bun test`
-5. Run one worker cycle: `bun run worker:run`
-6. Run API server: `bun run api:run`
-
-## Environment variables
+### Required environment variables
 
 - `NOTION_API_TOKEN`
 - `NOTION_IDEAS_DATABASE_ID`
@@ -63,62 +149,52 @@ tests/
 - `API_HOST` (default `0.0.0.0`)
 - `API_PORT` (default `3000`)
 
-## Scripts
+---
 
-- `bun run start`
-- `bun run dev`
-- `bun run api:run`
-- `bun run worker:run`
-- `bun run test`
-- `bun run typecheck`
+## 📘 Operational Guide
 
-## Phase 11 (Demo Hardening)
+- [RUNBOOK.md](./RUNBOOK.md)
+- [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)
 
-Current hardening scope on `main` is focused on demo reliability:
+---
 
-- Worker-safe processing with per-idea error isolation (`done` / `error` without full-cycle crash)
-- Simple retry strategy (3 attempts) on critical operations
-- Auto-recovery for stale `processing` ideas
-- OpenAI request timeout (default 15s) with retry
-- Lightweight GitHub idempotence (reuse issue when same title already exists)
-- Clear step-by-step logs for live demo visibility
+## 📦 Releases
 
-Operational guide:
+`v1.0.0` is the stable contest milestone.
 
-- See [RUNBOOK.md](./RUNBOOK.md)
-- See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)
+Detailed release history:
 
-## Phase 12 (Contest Finalization)
+- [CHANGELOG.md](./CHANGELOG.md)
 
-Finalization scope for the live demo and release readiness:
+---
 
-- `.env` and setup docs aligned with demo-pinned OpenAI model
-- 2-minute live demo script with fallback plan
-- CI on `push` / `pull_request` with:
-  - Typecheck
-  - Tests
-  - Coverage gate (`lines > 90`)
-- Final documentation alignment across README / RUNBOOK / DEMO_SCRIPT
+## 🏗 Product Vision
 
-## Releases
+- Automate software project planning with AI
+- Reduce time from idea to execution
+- Enable structured, scalable workflows
+- Bridge Notion -> AI -> GitHub seamlessly
 
-The roadmap is tracked with git tags:
+---
 
-- `v0.1.0` Phase 1 - setup
-- `v0.2.0` Phase 2 - Notion integration
-- `v0.3.0` Phase 3 - AI integration
-- `v0.4.0` Phase 4 - GitHub integration
-- `v0.5.0` Phase 5 - worker orchestration
-- `v0.6.0` Phase 6 - test coverage
-- `v0.7.0` Phase 7 - polish baseline
-- `v0.8.0` Phase 8 - release discipline
-- `v0.9.0` Phase 9 - rich idea content extraction
-- `v0.10.0` Phase 10 - professional GitHub issue generation
-- `v0.10.1` Phase 10 patch - formatting/context improvements
-- `v0.11.0` Phase 11 - demo hardening (worker recovery, retry, timeout, idempotence light)
-- `v0.11.1` Phase 11 patch - CI quality gate and coverage enforcement
-- `v1.0.0` Phase 12 - contest finalization and release milestone
+## 💡 Scope & Limitations
 
-Detailed version history:
+### What it does
 
-- See [CHANGELOG.md](./CHANGELOG.md)
+- Generate structured technical plans from ideas
+- Create actionable development tasks
+- Sync Notion outputs with GitHub issues
+
+### Out of scope (current version)
+
+- Full code generation
+- CI/CD pipeline generation
+- Multi-repository orchestration
+
+Focus is planning to execution readiness.
+
+---
+
+## 🏁 Status
+
+Stable version built for the Notion MCP Challenge.
