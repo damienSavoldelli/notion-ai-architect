@@ -37,10 +37,20 @@ Focus on building, not organizing.
 ## 🚀 Quick Demo (2 minutes)
 
 1. Create an idea in Notion
-2. Run the worker (or trigger via API)
+2. Let the system process it automatically
 3. Check generated project/tasks/issues
 
 💥 Your idea is instantly transformed into a structured engineering workflow.
+
+---
+
+## ⚙️ Automatic Execution
+
+The system runs automatically.
+
+Simply create a new idea in Notion - the workflow executes on its own.
+
+No manual action is required.
 
 ---
 
