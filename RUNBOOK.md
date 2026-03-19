@@ -6,26 +6,34 @@ Run a clean end-to-end demo:
 
 `Notion Idea -> AI plan -> Notion Project/Tasks -> GitHub Issues`
 
-For the live pitch sequence, use [DEMO_SCRIPT.md](./DEMO_SCRIPT.md).
+This runbook is designed for reliable live execution with minimal stress.
+
+For the live pitch sequence, see [DEMO_SCRIPT.md](./DEMO_SCRIPT.md).
 
 ## Prerequisites
 
-- `.env` is filled with valid Notion/OpenAI/GitHub credentials.
-- `OPENAI_MODEL` is pinned to `gpt-4o-mini` for predictable demo behavior.
-- Notion databases are configured (`Ideas`, `Projects`, `Tasks`).
-- The new idea has `Status = new`.
+- `.env` is configured with valid Notion, OpenAI, and GitHub credentials.
+- `OPENAI_MODEL=gpt-4o-mini` for stable demo behavior.
+- Notion databases are ready:
+  - `Ideas`
+  - `Projects`
+  - `Tasks`
+- At least one idea has `Status = new`.
 
-## Quick Start
+## Quick Demo Execution
 
-1. Install deps:
-   `bun install`
+1. Create or select one idea with `Status = new`.
 2. Run one worker cycle:
-   `bun run worker:run`
-3. Optional API mode:
-   `bun run api:run`
-   then `POST /worker/run`
 
-## Expected Logs
+```bash
+bun run worker:run
+```
+
+3. Observe logs and verify outputs in Notion and GitHub.
+
+## Expected Results
+
+### In logs
 
 - `[Worker] Starting workflow cycle.`
 - `[Worker] Found X new idea(s) to process.`
@@ -33,26 +41,83 @@ For the live pitch sequence, use [DEMO_SCRIPT.md](./DEMO_SCRIPT.md).
 - `[Worker][Idea ...] Created GitHub issue ...`
 - `[Worker] Workflow summary: ideas=..., projects=..., tasks=..., issues=...`
 
+### In Notion
+
+- Idea status transitions:
+  - `new -> processing -> done`
+- Project:
+  - created and linked to the idea
+- Tasks:
+  - created and linked to the project
+  - GitHub issue URL attached
+
+### In GitHub
+
+- Issues are created automatically.
+- Issue structure includes:
+  - title
+  - technical description
+  - acceptance criteria
+- Labels include:
+  - `AI`
+  - `priority:*`
+  - `feature|bug|chore`
+  - `project:*`
+
 ## Validation Checklist
 
-1. In Notion `Ideas`: status moves `new -> processing -> done` (or `error` on failure).
-2. In Notion `Projects`: one project page created and linked to the idea.
-3. In Notion `Tasks`: tasks created and linked to project + GitHub URL.
-4. In GitHub: structured issues created with project/type/priority labels.
+- [ ] Idea processed successfully
+- [ ] Project created in Notion
+- [ ] Tasks generated and linked
+- [ ] GitHub issues created without duplicates
 
 ## Failure Handling
 
-- OpenAI timeout/error:
-  - Retry is automatic (up to 3 attempts).
-  - Relaunch `bun run worker:run` if needed.
-- Stuck ideas in `processing`:
-  - Auto-recovery resets stale ideas to `new` at cycle start.
-- Duplicate GitHub issues:
-  - Light idempotence checks existing issue by title before create.
+### OpenAI error or timeout
 
-## Reset Procedure (Demo Prep)
+- Retry is automatic (up to 3 attempts).
+- If needed, rerun:
 
-1. In `Ideas`, ensure target idea is `new`.
-2. Remove test/demo projects/tasks if needed.
-3. Close/delete old demo issues if you want a clean GitHub board.
-4. Run `bun run worker:run` once.
+```bash
+bun run worker:run
+```
+
+### Idea stuck in `processing`
+
+- Auto-recovery resets stale ideas to `new` at cycle start.
+- Manual fallback: reset status to `new` in Notion.
+
+### Duplicate GitHub issues
+
+- Prevented via title-based idempotence.
+- Existing issue is reused when found.
+
+## Reset Procedure (Before Demo)
+
+1. Ensure target demo idea has `Status = new`.
+2. Clean Notion demo data if needed (projects/tasks).
+3. Clean GitHub demo noise if needed (close old demo issues).
+4. Run:
+
+```bash
+bun run worker:run
+```
+
+## Quick Recovery (Plan B)
+
+If something goes wrong during demo:
+
+1. Reset idea status to `new`.
+2. Rerun:
+
+```bash
+bun run worker:run
+```
+
+The system is retry-safe and idempotent by design.
+
+## Notes
+
+- Worker is stateless and safe to rerun.
+- Notion is the source of truth.
+- Reliability includes retries, timeout handling, and stale-state recovery.
