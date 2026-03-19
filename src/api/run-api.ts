@@ -31,7 +31,9 @@ const main = async (): Promise<void> => {
     githubRepository,
   );
   const worker = new IdeaWorker(workflow);
-  const server = buildServer(worker);
+  const server = buildServer(worker, {
+    workerRunBearerToken: env.API_BEARER_TOKEN,
+  });
 
   await server.listen({
     host: env.API_HOST,

@@ -194,6 +194,7 @@ bun run api:run
 - `GITHUB_TOKEN`
 - `GITHUB_OWNER`
 - `GITHUB_REPO`
+- `API_BEARER_TOKEN` (optional, protects `POST /worker/run`)
 - `API_HOST` (default `0.0.0.0`)
 - `API_PORT` (default `3000`)
 

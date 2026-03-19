@@ -5,7 +5,14 @@ interface WorkerRunner {
   runOnce(): Promise<WorkflowRunSummary>;
 }
 
-export const buildServer = (worker: WorkerRunner) => {
+interface ApiServerOptions {
+  workerRunBearerToken?: string;
+}
+
+export const buildServer = (
+  worker: WorkerRunner,
+  options: ApiServerOptions = {},
+) => {
   const server = Fastify({
     logger: false,
   });
@@ -14,7 +21,19 @@ export const buildServer = (worker: WorkerRunner) => {
     status: "ok",
   }));
 
-  server.post("/worker/run", async (_request, reply) => {
+  server.post("/worker/run", async (request, reply) => {
+    if (options.workerRunBearerToken) {
+      const authHeader = request.headers.authorization;
+      const expected = `Bearer ${options.workerRunBearerToken}`;
+
+      if (authHeader !== expected) {
+        return reply.status(401).send({
+          status: "error",
+          message: "unauthorized",
+        });
+      }
+    }
+
     const summary = await worker.runOnce();
     return reply.status(200).send({
       status: "ok",

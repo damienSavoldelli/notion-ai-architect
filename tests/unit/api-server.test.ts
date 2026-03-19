@@ -51,4 +51,74 @@ describe("API server", () => {
 
     await server.close();
   });
+
+  it("rejects worker run when bearer token is missing or invalid", async () => {
+    const runOnce = vi.fn().mockResolvedValue({
+      processedIdeas: 1,
+      createdProjects: 1,
+      createdTasks: 1,
+      createdIssues: 1,
+    });
+    const server = buildServer(
+      { runOnce },
+      { workerRunBearerToken: "demo-secret-token" },
+    );
+
+    const missingToken = await server.inject({
+      method: "POST",
+      url: "/worker/run",
+    });
+    expect(missingToken.statusCode).toBe(401);
+    expect(missingToken.json()).toEqual({
+      status: "error",
+      message: "unauthorized",
+    });
+
+    const wrongToken = await server.inject({
+      method: "POST",
+      url: "/worker/run",
+      headers: {
+        authorization: "Bearer wrong-token",
+      },
+    });
+    expect(wrongToken.statusCode).toBe(401);
+    expect(runOnce).not.toHaveBeenCalled();
+
+    await server.close();
+  });
+
+  it("allows worker run with valid bearer token", async () => {
+    const runOnce = vi.fn().mockResolvedValue({
+      processedIdeas: 2,
+      createdProjects: 2,
+      createdTasks: 4,
+      createdIssues: 4,
+    });
+    const server = buildServer(
+      { runOnce },
+      { workerRunBearerToken: "demo-secret-token" },
+    );
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/worker/run",
+      headers: {
+        authorization: "Bearer demo-secret-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      status: "ok",
+      summary: {
+        processedIdeas: 2,
+        createdProjects: 2,
+        createdTasks: 4,
+        createdIssues: 4,
+      },
+    });
+    expect(runOnce).toHaveBeenCalledTimes(1);
+
+    await server.close();
+  });
 });

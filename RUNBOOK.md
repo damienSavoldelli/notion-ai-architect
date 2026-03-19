@@ -30,6 +30,12 @@ bun run worker:run
 ```
 
 3. Observe logs and verify outputs in Notion and GitHub.
+4. Optional API trigger mode (if API server is running):
+
+```bash
+curl -X POST http://localhost:3000/worker/run \\
+  -H "Authorization: Bearer $API_BEARER_TOKEN"
+```
 
 ## Expected Results
 
