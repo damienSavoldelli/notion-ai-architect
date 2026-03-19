@@ -71,13 +71,37 @@ Each processed idea becomes:
 
 ## 🧱 Architecture
 
-```text
-domain -> application -> infrastructure -> worker/api
+The system follows a clean, layered architecture:
 
-Notion = source of truth
-Worker = stateless orchestrator
-AI = structured generation (JSON schema validated)
-GitHub = execution layer
+`domain -> application -> infrastructure -> worker/api`
+
+- **Domain**: core business models
+- **Application**: workflows and orchestration logic
+- **Infrastructure**: integrations (Notion, OpenAI, GitHub)
+- **Worker/API**: execution layer
+
+---
+
+### 📁 Project structure
+
+```text
+src/
+  domain/
+    entities/
+  application/
+    ports/
+    workflows/
+  infrastructure/
+    notion/
+    ai/
+    github/
+  worker/
+  api/
+  config/
+tests/
+  unit/
+  integration/
+  e2e/
 ```
 
 ---
