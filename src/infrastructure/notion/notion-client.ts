@@ -308,7 +308,7 @@ export class NotionClient implements NotionRepository {
 
       for (const block of response.results) {
         const blockType = getBlockType(block);
-        if (isHeadingBlockType(blockType)) {
+        if (isTemplateSectionBoundaryHeading(blockType)) {
           skipExampleSection = false;
           skipTemplateSection = false;
         }
@@ -501,10 +501,8 @@ const getBlockType = (block: unknown): string | null => {
   return block.type;
 };
 
-const isHeadingBlockType = (blockType: string | null): boolean =>
-  blockType === "heading_1" ||
-  blockType === "heading_2" ||
-  blockType === "heading_3";
+const isTemplateSectionBoundaryHeading = (blockType: string | null): boolean =>
+  blockType === "heading_1" || blockType === "heading_2";
 
 const isExampleMarkerLine = (line: string): boolean =>
   normalizeLineForFiltering(line).startsWith("[example]");

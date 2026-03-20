@@ -263,6 +263,47 @@ describe("NotionClient", () => {
             },
           },
           {
+            type: "heading_3",
+            heading_3: { rich_text: [{ plain_text: "Processing time" }] },
+          },
+          {
+            type: "paragraph",
+            paragraph: {
+              rich_text: [
+                {
+                  plain_text:
+                    'After setting the status to "new", the system will automatically analyze your idea and generate a structured project.',
+                },
+              ],
+            },
+          },
+          {
+            type: "paragraph",
+            paragraph: {
+              rich_text: [
+                {
+                  plain_text:
+                    "This process typically takes 20 to 60 seconds depending on the complexity of your idea.",
+                },
+              ],
+            },
+          },
+          {
+            type: "paragraph",
+            paragraph: {
+              rich_text: [
+                {
+                  plain_text:
+                    "Results will appear progressively in Notion and GitHub — just give it a moment.",
+                },
+              ],
+            },
+          },
+          {
+            type: "heading_3",
+            heading_3: { rich_text: [{ plain_text: "Tip" }] },
+          },
+          {
             type: "paragraph",
             paragraph: {
               rich_text: [
