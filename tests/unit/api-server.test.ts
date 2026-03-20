@@ -2,6 +2,36 @@ import { describe, expect, it, vi } from "vitest";
 import { buildServer } from "../../src/api/server";
 
 describe("API server", () => {
+  it("returns root service metadata", async () => {
+    const server = buildServer({
+      runOnce: vi.fn().mockResolvedValue({
+        processedIdeas: 0,
+        createdProjects: 0,
+        createdTasks: 0,
+        createdIssues: 0,
+      }),
+    });
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      name: "AI Workflow Architect",
+      status: "running",
+      description:
+        "AI workflow engine transforming Notion ideas into GitHub issues",
+      endpoints: {
+        health: "/health",
+        trigger: "/worker/run",
+      },
+    });
+
+    await server.close();
+  });
+
   it("returns health status", async () => {
     const server = buildServer({
       runOnce: vi.fn().mockResolvedValue({

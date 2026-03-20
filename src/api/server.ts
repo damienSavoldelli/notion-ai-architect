@@ -17,6 +17,17 @@ export const buildServer = (
     logger: false,
   });
 
+  server.get("/", async () => ({
+    name: "AI Workflow Architect",
+    status: "running",
+    description:
+      "AI workflow engine transforming Notion ideas into GitHub issues",
+    endpoints: {
+      health: "/health",
+      trigger: "/worker/run",
+    },
+  }));
+
   server.get("/health", async () => ({
     status: "ok",
   }));
