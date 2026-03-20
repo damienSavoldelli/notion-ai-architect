@@ -244,6 +244,37 @@ describe("NotionClient", () => {
           },
           {
             type: "heading_2",
+            heading_2: { rich_text: [{ plain_text: "How to use" }] },
+          },
+          {
+            type: "numbered_list_item",
+            numbered_list_item: {
+              rich_text: [{ plain_text: "Write your idea" }],
+            },
+          },
+          {
+            type: "numbered_list_item",
+            numbered_list_item: {
+              rich_text: [
+                {
+                  plain_text: 'Do not set status to "new" until your idea is complete.',
+                },
+              ],
+            },
+          },
+          {
+            type: "paragraph",
+            paragraph: {
+              rich_text: [
+                {
+                  plain_text:
+                    "Tip: The more precise your idea, the better the generated architecture and tasks.",
+                },
+              ],
+            },
+          },
+          {
+            type: "heading_2",
             heading_2: { rich_text: [{ plain_text: "Idea Summary" }] },
           },
           {

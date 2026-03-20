@@ -298,6 +298,7 @@ export class NotionClient implements NotionRepository {
     const textParts: string[] = [];
     let nextCursor: string | undefined;
     let skipExampleSection = false;
+    let skipTemplateSection = false;
 
     while (true) {
       const response = await this.notion.blocks.children.list({
@@ -309,10 +310,16 @@ export class NotionClient implements NotionRepository {
         const blockType = getBlockType(block);
         if (isHeadingBlockType(blockType)) {
           skipExampleSection = false;
+          skipTemplateSection = false;
         }
 
         const extracted = extractTextFromBlock(block);
         if (extracted) {
+          if (isTemplateSectionHeading(extracted)) {
+            skipTemplateSection = true;
+            continue;
+          }
+
           if (isExampleMarkerLine(extracted)) {
             if (isStandaloneExampleMarker(extracted)) {
               skipExampleSection = true;
@@ -320,7 +327,11 @@ export class NotionClient implements NotionRepository {
             continue;
           }
 
-          if (skipExampleSection || isTemplateInstructionLine(extracted)) {
+          if (
+            skipExampleSection ||
+            skipTemplateSection ||
+            isTemplateInstructionLine(extracted)
+          ) {
             continue;
           }
 
@@ -502,6 +513,9 @@ const isStandaloneExampleMarker = (line: string): boolean =>
   normalizeLineForFiltering(line) === "[example]" ||
   normalizeLineForFiltering(line) === "[example]:";
 
+const isTemplateSectionHeading = (line: string): boolean =>
+  normalizeLineForFiltering(line) === "how to use";
+
 const isTemplateInstructionLine = (line: string): boolean => {
   const normalized = normalizeLineForFiltering(line);
 
@@ -520,7 +534,8 @@ const isTemplateInstructionLine = (line: string): boolean => {
   return (
     normalized.includes("for best ai results") ||
     normalized.includes("you can fill only the sections you need") ||
-    normalized.includes("please remove or replace all lines starting with [example]")
+    normalized.includes("please remove or replace all lines starting with [example]") ||
+    normalized.startsWith("tip: the more precise your idea")
   );
 };
 
