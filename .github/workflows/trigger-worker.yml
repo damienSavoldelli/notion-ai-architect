@@ -31,7 +31,8 @@ jobs:
           http_code=$(curl -sS -o /tmp/worker-response.json -w "%{http_code}" \
             -X POST "$WORKER_TRIGGER_URL" \
             -H "Authorization: Bearer $API_BEARER_TOKEN" \
-            -H "Content-Type: application/json")
+            -H "Content-Type: application/json" \
+            --data '{}')
 
           echo "HTTP status: $http_code"
           cat /tmp/worker-response.json || true
