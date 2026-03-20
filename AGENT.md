@@ -165,7 +165,7 @@ tests/
 
 - Never commit `.env`.
 - Keep `.env.example` current with every new required variable.
-- Keep README and AGEND aligned when architecture or scripts change.
+- Keep README and AGENT aligned when architecture or scripts change.
 - Keep tags in sync with roadmap milestones.
 
 # File Naming Rules
