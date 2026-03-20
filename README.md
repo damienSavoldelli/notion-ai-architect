@@ -52,6 +52,9 @@ Simply create a new idea in Notion - the workflow executes on its own.
 
 No manual action is required.
 
+For unattended execution, this repository includes an automated worker trigger workflow.
+It periodically calls the protected `/worker/run` endpoint.
+
 ---
 
 ## 🐙 Live Demo Output

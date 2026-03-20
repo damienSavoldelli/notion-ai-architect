@@ -1,0 +1,42 @@
+name: Trigger Worker
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger worker endpoint
+        env:
+          WORKER_TRIGGER_URL: ${{ secrets.WORKER_TRIGGER_URL }}
+          API_BEARER_TOKEN: ${{ secrets.API_BEARER_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${WORKER_TRIGGER_URL:-}" ]; then
+            echo "Missing WORKER_TRIGGER_URL secret"
+            exit 1
+          fi
+
+          if [ -z "${API_BEARER_TOKEN:-}" ]; then
+            echo "Missing API_BEARER_TOKEN secret"
+            exit 1
+          fi
+
+          echo "Triggering worker: $WORKER_TRIGGER_URL"
+
+          http_code=$(curl -sS -o /tmp/worker-response.json -w "%{http_code}" \
+            -X POST "$WORKER_TRIGGER_URL" \
+            -H "Authorization: Bearer $API_BEARER_TOKEN" \
+            -H "Content-Type: application/json")
+
+          echo "HTTP status: $http_code"
+          cat /tmp/worker-response.json || true
+
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "Worker trigger failed"
+            exit 1
+          fi
