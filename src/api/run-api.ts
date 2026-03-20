@@ -18,6 +18,7 @@ const main = async (): Promise<void> => {
   const aiArchitectService = new OpenAiArchitectClient({
     apiKey: env.OPENAI_API_KEY,
     model: env.OPENAI_MODEL,
+    timeoutMs: env.OPENAI_TIMEOUT_MS,
   });
   const githubRepository = new GitHubClient({
     token: env.GITHUB_TOKEN,

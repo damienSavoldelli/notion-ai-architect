@@ -14,6 +14,7 @@ For the live pitch sequence, see [DEMO_SCRIPT.md](./DEMO_SCRIPT.md).
 
 - `.env` is configured with valid Notion, OpenAI, and GitHub credentials.
 - `OPENAI_MODEL=gpt-4o-mini` for stable demo behavior.
+- `OPENAI_TIMEOUT_MS=60000` to avoid premature timeout on structured generations.
 - Notion databases are ready:
   - `Ideas`
   - `Projects`
@@ -82,6 +83,7 @@ curl -X POST http://localhost:3000/worker/run \\
 ### OpenAI error or timeout
 
 - Retry is automatic (up to 3 attempts).
+- If timeouts become frequent, increase `OPENAI_TIMEOUT_MS` before rerunning.
 - If needed, rerun:
 
 ```bash

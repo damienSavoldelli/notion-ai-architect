@@ -204,6 +204,7 @@ bun run api:run
 - `NOTION_TASKS_DATABASE_ID`
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (demo pinned: `gpt-4o-mini`)
+- `OPENAI_TIMEOUT_MS` (optional, default `60000`)
 - `GITHUB_TOKEN`
 - `GITHUB_OWNER`
 - `GITHUB_REPO`

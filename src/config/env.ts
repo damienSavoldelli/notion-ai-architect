@@ -7,6 +7,7 @@ const envSchema = z.object({
   NOTION_TASKS_DATABASE_ID: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_MODEL: z.string().min(1),
+  OPENAI_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
   GITHUB_TOKEN: z.string().min(1),
   GITHUB_OWNER: z.string().min(1),
   GITHUB_REPO: z.string().min(1),

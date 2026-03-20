@@ -16,9 +16,27 @@ describe("loadEnv", () => {
     });
 
     expect(env.OPENAI_MODEL).toBe("gpt-5.2");
+    expect(env.OPENAI_TIMEOUT_MS).toBe(60000);
     expect(env.GITHUB_REPO).toBe("notion-ai-architect");
     expect(env.API_HOST).toBe("0.0.0.0");
     expect(env.API_PORT).toBe(3000);
+  });
+
+  it("loads a custom OpenAI timeout when provided", () => {
+    const env = loadEnv({
+      NOTION_API_TOKEN: "notion-token",
+      NOTION_IDEAS_DATABASE_ID: "ideas-id",
+      NOTION_PROJECTS_DATABASE_ID: "projects-id",
+      NOTION_TASKS_DATABASE_ID: "tasks-id",
+      OPENAI_API_KEY: "openai-key",
+      OPENAI_MODEL: "gpt-5.2",
+      OPENAI_TIMEOUT_MS: "45000",
+      GITHUB_TOKEN: "github-token",
+      GITHUB_OWNER: "acme",
+      GITHUB_REPO: "notion-ai-architect",
+    });
+
+    expect(env.OPENAI_TIMEOUT_MS).toBe(45000);
   });
 
   it("throws when required values are missing", () => {
